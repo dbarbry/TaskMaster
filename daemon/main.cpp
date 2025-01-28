@@ -22,7 +22,6 @@ void    daemonize(void) {
         exit(1);
     }
     if (pid > 0) {
-        // parent exit so child is detached
         exit(0);
     }
 
@@ -76,7 +75,6 @@ void    run_server(void) {
         exit(EXIT_FAILURE);
     }
 
-    // Listen for connections
     if (listen(server_fd, 5) < 0) {
         perror("listen failed");
         exit(EXIT_FAILURE);

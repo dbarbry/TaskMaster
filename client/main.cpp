@@ -3,7 +3,6 @@
 #include <sys/un.h>
 
 #include <algorithm>
-#include <termios.h>
 #include <iostream>
 #include <unistd.h>
 #include <cstdlib>
@@ -17,14 +16,10 @@
 class Shell {
     private:
         std::vector<std::string>    history;
-        struct termios              original_termios;
 
     public:
         void    run(int fd) {
             std::string cmd;
-            int         history_index = -1;
-
-            enable_raw_mode();
 
             while (true) {
                 std::cout << "taskmaster> ";
@@ -40,17 +35,6 @@ class Shell {
         }
     
     private:
-        void enable_raw_mode() {
-            tcgetattr(STDIN_FILENO, &original_termios); // Get current terminal settings
-            struct termios raw = original_termios;
-            raw.c_lflag &= ~(ECHO | ICANON); // Disable echo and canonical mode
-            tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw); // Apply raw settings
-        }
-        
-        void disable_raw_mode() {
-            tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_termios);
-        }
-
         void    add_to_history(const std::string &cmd) {
             history.push_back(cmd);
         }
