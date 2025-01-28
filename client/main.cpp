@@ -1,14 +1,4 @@
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-
-#include <readline/readline.h>
-#include <readline/history.h>
-#include <iostream>
-#include <unistd.h>
-#include <cstring>
-#include <string>
-#include <vector>
+#include "main.hpp"
 
 #define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024
@@ -20,15 +10,22 @@ class Shell {
 
             while (true) {
                 input = readline("taskmaster> ");
+                if (!input) { // ctrl D
+                    std::cout << "Leaving..." << std::endl;
+                    break;
+                }
                 std::string cmd(input);
 
+                free(input);
                 if(!cmd.empty()) {
-                    add_history(input);
+                    add_history(cmd.c_str());
                     std::string clean_cmd = parse_cmd(cmd);
 
-                    send_cmd(fd, clean_cmd);
+                    if (!send_cmd(fd, clean_cmd)) {
+                        std::cout << "Daemon crashed" << std::endl;
+                        break;
+                    }
                 }
-                free(input);
             }
         }
     
@@ -41,13 +38,27 @@ class Shell {
             return clean_cmd;
         }
 
-        void    send_cmd(int fd, const std::string &cmd) {
-            char    buffer[BUFFER_SIZE] = {0};
+        bool    send_cmd(int fd, const std::string &cmd) {
+            char buffer[BUFFER_SIZE] = {0};
+            std::string message = cmd + "\n";
+            ssize_t     bytes_read;
             
-            write(fd, cmd.c_str(), cmd.size());
-            read(fd, buffer, BUFFER_SIZE);
+            if (write(fd, message.c_str(), message.size()) <= 0) {
+                perror("write failed");
+                return false;
+            }
+
+            bytes_read = read(fd, buffer, BUFFER_SIZE - 1);
+            if (bytes_read < 0) {
+                perror("read failed");
+                return false;
+            } else if (bytes_read == 0) {
+                std::cerr << "Server closed the connection.\n";
+                return false;
+            }
 
             std::cout << "Server: " << buffer << std::endl;
+            return true;
         }
 };
 
@@ -74,6 +85,7 @@ int    main(void) {
     std::cout << "Welcome to taskmaster client." << std::endl;
     std::cout << "type 'help' for help." << std::endl;
 
+    setup_signal_handlers();
     shell.run(fd);
 
     close(fd);
