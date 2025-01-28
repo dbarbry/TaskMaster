@@ -71,7 +71,7 @@ void    handle_client(int client_fd) {
             std::cout << "Client disconnected" << std::endl;
             break;
         }
-        std::cout << "Received: " << buffer << std::endl;
+        std::cout << "Received: " << buffer;
 
         std::string response = "Command received: " + std::string(buffer);
         if (write(client_fd, response.c_str(), response.size()) <= 0) {

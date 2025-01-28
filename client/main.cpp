@@ -9,20 +9,20 @@ class Shell {
             char    *input;
 
             while (true) {
-                input = readline("taskmaster> ");
+                input = readline("\033[34mtaskmaster\033[0m$ ");
                 if (!input) { // ctrl D
                     std::cout << "Leaving..." << std::endl;
                     break;
                 }
-                std::string cmd(input);
 
+                std::string cmd(input);
                 free(input);
+
                 if(!cmd.empty()) {
                     add_history(cmd.c_str());
                     std::string clean_cmd = parse_cmd(cmd);
 
-                    if (!send_cmd(fd, clean_cmd)) {
-                        std::cout << "Daemon crashed" << std::endl;
+                    if (!analyze_cmd(fd, clean_cmd)) {
                         break;
                     }
                 }
@@ -57,7 +57,29 @@ class Shell {
                 return false;
             }
 
-            std::cout << "Server: " << buffer << std::endl;
+            std::cout << "Server: " << buffer;
+            return true;
+        }
+
+        bool    analyze_cmd(int fd, const std::string &cmd) {
+            if (cmd == "help") {
+                std::cout << "Server commands:" << std::endl;
+                std::cout << "  halt <serviceName> - pause a service" << std::endl;
+                std::cout << "  stop <serviceName> - stop a service" << std::endl;
+                std::cout << "  restart <serviceName> - restart a service" << std::endl;
+                std::cout << "  reload <serviceName> - reload a service" << std::endl;
+                std::cout << std::endl << "Client commands:" << std::endl;
+                std::cout << "  exit - exit the client" << std::endl << std::endl;
+                return true;
+            } else if (cmd == "exit") {
+                std::cout << "Leaving..." << std::endl;
+                return false;
+            }
+
+            if (!send_cmd(fd, cmd)) {
+                std::cout << "Daemon crashed" << std::endl;
+                return false;
+            }
             return true;
         }
 };

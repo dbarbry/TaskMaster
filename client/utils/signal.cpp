@@ -5,7 +5,7 @@
 void    signal_handler(int signum) {
     switch (signum) {
         case SIGTSTP:
-            std::cout << "Ctrl+Z is blocked in this shell" << std::endl;
+            std::cout << std::endl << "Ctrl+Z is blocked in this shell" << std::endl;
             break;
         case SIGTERM:
             std::cout << "Leaving..." << std::endl;
