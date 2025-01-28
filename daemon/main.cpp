@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <fcntl.h>
 
+#include "./incs/parsing.hpp"
+
 #define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024
 
@@ -101,8 +103,11 @@ void    run_server(void) {
     close(server_fd);
     unlink(SOCKET_PATH);
 }
-
-int main(void) {
+int main(int argc, char **argv) {
+    if (argc > 1) {
+        std::cout << ".conf : " << argv[1] << std::endl;
+        parsing(argv);
+    }
     // daemonize();
     run_server();
 
