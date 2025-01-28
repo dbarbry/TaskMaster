@@ -2,10 +2,10 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
-#include <algorithm>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include <iostream>
 #include <unistd.h>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -14,31 +14,25 @@
 #define BUFFER_SIZE 1024
 
 class Shell {
-    private:
-        std::vector<std::string>    history;
-
     public:
         void    run(int fd) {
-            std::string cmd;
+            char    *input;
 
             while (true) {
-                std::cout << "taskmaster> ";
-                std::getline(std::cin, cmd);
+                input = readline("taskmaster> ");
+                std::string cmd(input);
 
                 if(!cmd.empty()) {
+                    add_history(input);
                     std::string clean_cmd = parse_cmd(cmd);
 
-                    history.push_back(clean_cmd);
                     send_cmd(fd, clean_cmd);
                 }
+                free(input);
             }
         }
     
     private:
-        void    add_to_history(const std::string &cmd) {
-            history.push_back(cmd);
-        }
-
         std::string parse_cmd(const std::string &cmd) {
             std::string clean_cmd = cmd;
 
