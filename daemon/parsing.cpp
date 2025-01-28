@@ -183,5 +183,12 @@ void parsing(char **args)
         return;
     }
     std::map<std::string, ProgramConfig> programs = parse_config(filename); 
-    log_config(programs);   
+
+    for (const auto& program : programs) {
+        if (!program.second.isValid()) {
+            std::cout << "La configuration de " << program.first << " est invalide." << std::endl;
+            continue;
+        }
+        program.second.printConfig();
+    }
 }
