@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <cstring>
 #include <cstdlib>
+#include <csignal>
 #include <fcntl.h>
 
 #define SOCKET_PATH "/tmp/taskmaster_socket"
