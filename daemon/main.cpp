@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
         std::cout << ".conf : " << argv[1] << std::endl;
         parsing(argv);
     }
-    daemonize();
+    // daemonize();
     run_server();
 
     return 0;

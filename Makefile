@@ -17,6 +17,7 @@ OBJ_SERVER		=	$(addprefix ./$(OBJ_SERVER_REP)/, $(SRC_SERVER:.cpp=.o))
 
 CXX				=	g++
 FLAGS			=	-Wall -Werror -Wextra
+RDLINE_FLAGS	=	-lreadline 
 HDR_FLAGS_D		=	-I daemon/
 HDR_FLAGS_C		=	-I client/
 
@@ -46,7 +47,7 @@ print_header:
 .PHONY: print_header
 
 ./obj_client/%.o: ./$(NAME_CLIENT)/%.cpp $(HDR_CLIENT)
-	mkdir -p $(OBJ_CLIENT_REP)
+	mkdir -p $(OBJ_CLIENT_REP) $(OBJ_CLIENT_REP)/utils
 	$(CXX) $(FLAGS) $(HDR_FLAGS_C) -c $< -o $@
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
 
@@ -56,7 +57,7 @@ print_header:
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
 
 $(NAME): $(OBJ_CLIENT) $(OBJ_SERVER)
-	$(CXX) $(FLAGS) $(HDR_FLAGS_C) $(OBJ_CLIENT) -o $(NAME_CLIENT).out
+	$(CXX) $(FLAGS) $(HDR_FLAGS_C) $(OBJ_CLIENT) $(RDLINE_FLAGS) -o $(NAME_CLIENT).out
 	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_CLIENT).out $(BGREEN)\033[47G[✔]$(RST)"
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) $(OBJ_SERVER) -o $(NAME_SERVER).out
 	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_SERVER).out $(BGREEN)\033[47G[✔]$(RST)"
