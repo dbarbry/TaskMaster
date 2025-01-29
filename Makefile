@@ -94,6 +94,7 @@ kill:
 		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[47G[✔]$(RST)"; \
 		kill $$PID; \
 	fi
+.PHONY: kill
 
 clean:
 	$(RM) $(OBJ_CLIENT) $(OBJ_SERVER)
