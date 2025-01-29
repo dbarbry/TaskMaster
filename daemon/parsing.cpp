@@ -59,66 +59,70 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
             value.erase(value.find_last_not_of(" \t") + 1);
 
             if (key == "cmd") {
-                current_config.cmd = value;
+                current_config.setCmd(value);
             } else if (key == "numprocs") {
                 try {
-                    current_config.numprocs = std::stoi(value);
+                    current_config.setNumprocs(std::stoi(value));
                 } catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid number for numprocs: " << value << std::endl;
                 }
             } else if (key == "umask") {
-                current_config.umask = value;
+                current_config.setUmask(value);
             } else if (key == "workingdir") {
-                current_config.workingdir = value;
+                current_config.setWorkingDir(value);
             } else if (key == "autostart") {
-                current_config.autostart = (value == "true");
+                current_config.setAutostart(value == "true");
             } else if (key == "autorestart") {
-                current_config.autorestart = value;
+                current_config.setAutorestart(value);
             } else if (key == "exitcodes") {
                 std::stringstream ss(value);
                 std::string temp;
+                std::vector<int> exitcodes;
                 while (std::getline(ss, temp, ' ')) {
                     try {
-                        current_config.exitcodes.push_back(std::stoi(temp));
+                        exitcodes.push_back(std::stoi(temp));
                     } catch (const std::invalid_argument& e) {
                         std::cerr << "Invalid exit code: " << temp << std::endl;
                     }
                 }
+                current_config.setExitcodes(exitcodes);
             } else if (key == "startretries") {
                 try {
-                    current_config.startretries = std::stoi(value);
+                    current_config.setStartretries(std::stoi(value));
                 } catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid number for startretries: " << value << std::endl;
                 }
             } else if (key == "starttime") {
                 try {
-                    current_config.starttime = std::stoi(value);
+                    current_config.setStarttime(std::stoi(value));
                 } catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid number for starttime: " << value << std::endl;
                 }
             } else if (key == "stopsignal") {
-                current_config.stopsignal = value;
+                current_config.setStopsignal(value);
             } else if (key == "stoptime") {
                 try {
-                    current_config.stoptime = std::stoi(value);
+                    current_config.setStoptime(std::stoi(value));
                 } catch (const std::invalid_argument& e) {
                     std::cerr << "Invalid number for stoptime: " << value << std::endl;
                 }
             } else if (key == "stdout") {
-                current_config.stdout_file = value;
+                current_config.setStdoutFile(value);
             } else if (key == "stderr") {
-                current_config.stderr_file = value;
+                current_config.setStderrFile(value);
             } else if (key == "env") {
                 std::stringstream ss(value);
                 std::string env_pair;
+                std::map<std::string, std::string> env_map;
                 while (std::getline(ss, env_pair, ' ')) {
                     size_t equal_pos = env_pair.find('=');
                     if (equal_pos != std::string::npos) {
                         std::string env_key = env_pair.substr(0, equal_pos);
                         std::string env_value = env_pair.substr(equal_pos + 1);
-                        current_config.env[env_key] = env_value;
+                        env_map[env_key] = env_value;
                     }
                 }
+                current_config.setEnv(env_map);
             }
         }
     }
@@ -130,26 +134,27 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
 }
 
 void log_program_config(const ProgramConfig& config) {
-    std::cout << "cmd: " << config.cmd << std::endl;
-    std::cout << "numprocs: " << config.numprocs << std::endl;
-    std::cout << "umask: " << config.umask << std::endl;
-    std::cout << "workingdir: " << config.workingdir << std::endl;
-    std::cout << "autostart: " << (config.autostart ? "true" : "false") << std::endl;
-    std::cout << "autorestart: " << config.autorestart << std::endl;
-    std::cout << "startretries: " << config.startretries << std::endl;
-    std::cout << "starttime: " << config.starttime << std::endl;
-    std::cout << "stopsignal: " << config.stopsignal << std::endl;
-    std::cout << "stoptime: " << config.stoptime << std::endl;
-    std::cout << "stdout_file: " << config.stdout_file << std::endl;
-    std::cout << "stderr_file: " << config.stderr_file << std::endl;
+    std::cout << "cmd: " << config.getCmd() << std::endl;
+    std::cout << "numprocs: " << config.getNumprocs() << std::endl;
+    std::cout << "umask: " << config.getUmask() << std::endl;
+    std::cout << "workingdir: " << config.getWorkingDir() << std::endl;
+    std::cout << "autostart: " << (config.getAutostart() ? "true" : "false") << std::endl;
+    std::cout << "autorestart: " << config.getAutorestart() << std::endl;
+    std::cout << "startretries: " << config.getStartretries() << std::endl;
+    std::cout << "starttime: " << config.getStarttime() << std::endl;
+    std::cout << "stopsignal: " << config.getStopsignal() << std::endl;
+    std::cout << "stoptime: " << config.getStoptime() << std::endl;
+    std::cout << "stdout_file: " << config.getStdoutFile() << std::endl;
+    std::cout << "stderr_file: " << config.getStderrFile() << std::endl;
+
     std::cout << "exitcodes: ";
-    for (const auto& exitcode : config.exitcodes) {
+    for (const auto& exitcode : config.getExitcodes()) {
         std::cout << exitcode << " ";
     }
     std::cout << std::endl;
 
     std::cout << "env: " << std::endl;
-    for (const auto& env : config.env) {
+    for (const auto& env : config.getEnv()) {
         std::cout << "  " << env.first << "=" << env.second << std::endl;
     }
 }

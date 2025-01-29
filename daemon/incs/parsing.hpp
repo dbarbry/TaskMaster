@@ -9,7 +9,8 @@
 #include <sstream>
 
 class ProgramConfig {
-public:
+private : 
+
     std::string cmd;
     int numprocs;
     std::string umask;
@@ -25,6 +26,8 @@ public:
     std::string stderr_file;
     std::map<std::string, std::string> env;
 
+public:
+    // Getters
     std::string getCmd() const { return cmd; }
     int getNumprocs() const { return numprocs; }
     std::string getUmask() const { return umask; }
@@ -40,6 +43,21 @@ public:
     std::string getStderrFile() const { return stderr_file; }
     const std::map<std::string, std::string>& getEnv() const { return env; }
 
+    // Setters
+    void setCmd(const std::string& value) { cmd = value; }
+    void setNumprocs(int value) { numprocs = value; }
+    void setUmask(const std::string& value) { umask = value; }
+    void setWorkingDir(const std::string& value) { workingdir = value; }
+    void setAutostart(bool value) { autostart = value; }
+    void setAutorestart(const std::string& value) { autorestart = value; }
+    void setExitcodes(const std::vector<int>& value) { exitcodes = value; }
+    void setStartretries(int value) { startretries = value; }
+    void setStarttime(int value) { starttime = value; }
+    void setStopsignal(const std::string& value) { stopsignal = value; }
+    void setStoptime(int value) { stoptime = value; }
+    void setStdoutFile(const std::string& value) { stdout_file = value; }
+    void setStderrFile(const std::string& value) { stderr_file = value; }
+    void setEnv(const std::map<std::string, std::string>& value) { env = value; }
 };
 
 void parsing(char **args);
