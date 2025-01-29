@@ -133,36 +133,10 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
     return programs;
 }
 
-void log_program_config(const ProgramConfig& config) {
-    std::cout << "cmd: " << config.getCmd() << std::endl;
-    std::cout << "numprocs: " << config.getNumprocs() << std::endl;
-    std::cout << "umask: " << config.getUmask() << std::endl;
-    std::cout << "workingdir: " << config.getWorkingDir() << std::endl;
-    std::cout << "autostart: " << (config.getAutostart() ? "true" : "false") << std::endl;
-    std::cout << "autorestart: " << config.getAutorestart() << std::endl;
-    std::cout << "startretries: " << config.getStartretries() << std::endl;
-    std::cout << "starttime: " << config.getStarttime() << std::endl;
-    std::cout << "stopsignal: " << config.getStopsignal() << std::endl;
-    std::cout << "stoptime: " << config.getStoptime() << std::endl;
-    std::cout << "stdout_file: " << config.getStdoutFile() << std::endl;
-    std::cout << "stderr_file: " << config.getStderrFile() << std::endl;
-
-    std::cout << "exitcodes: ";
-    for (const auto& exitcode : config.getExitcodes()) {
-        std::cout << exitcode << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "env: " << std::endl;
-    for (const auto& env : config.getEnv()) {
-        std::cout << "  " << env.first << "=" << env.second << std::endl;
-    }
-}
-
 void log_config(const std::map<std::string, ProgramConfig>& programs) {
     for (const auto& program : programs) {
         std::cout << "Program: " << program.first << std::endl;
-        log_program_config(program.second);  
+        program.second.logConfig();
         std::cout << std::endl;
     }
 }

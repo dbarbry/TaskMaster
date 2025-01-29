@@ -58,6 +58,33 @@ public:
     void setStdoutFile(const std::string& value) { stdout_file = value; }
     void setStderrFile(const std::string& value) { stderr_file = value; }
     void setEnv(const std::map<std::string, std::string>& value) { env = value; }
+
+    void logConfig() const {
+        std::cout << "cmd: " << getCmd() << std::endl;
+        std::cout << "numprocs: " << getNumprocs() << std::endl;
+        std::cout << "umask: " << getUmask() << std::endl;
+        std::cout << "workingdir: " << getWorkingDir() << std::endl;
+        std::cout << "autostart: " << (getAutostart() ? "true" : "false") << std::endl;
+        std::cout << "autorestart: " << getAutorestart() << std::endl;
+        std::cout << "startretries: " << getStartretries() << std::endl;
+        std::cout << "starttime: " << getStarttime() << std::endl;
+        std::cout << "stopsignal: " << getStopsignal() << std::endl;
+        std::cout << "stoptime: " << getStoptime() << std::endl;
+        std::cout << "stdout_file: " << getStdoutFile() << std::endl;
+        std::cout << "stderr_file: " << getStderrFile() << std::endl;
+
+        std::cout << "exitcodes: ";
+        for (const auto& exitcode : getExitcodes()) {
+            std::cout << exitcode << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "env: " << std::endl;
+        for (const auto& env : getEnv()) {
+            std::cout << "  " << env.first << "=" << env.second << std::endl;
+        }
+    }
+
 };
 
 void parsing(char **args);
