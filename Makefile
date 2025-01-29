@@ -32,6 +32,9 @@ NAME_LOG		=	log
 all: print_header $(NAME)
 .PHONY: all
 
+prerequisities:
+	sudo apt install clang-format -y
+.PHONY: prerequesities
 print_header:
 	@echo "$(BBLU)==========================================================="
 	@echo "$(BBLU)"
