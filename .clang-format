@@ -11,3 +11,13 @@ ReflowComments: false
 InsertFinalNewline: true
 AlignConsecutiveDeclarations: true
 AlignConsecutiveAssignments: true
+AlignTrailingComments: true
+AlignOperands: true
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakBeforeMultilineStrings: true
+SpacesInParentheses: false
+SpacesInAngles: false
+SpacesBeforeTrailingComments: 2
+SpaceBeforeParens: ControlStatements
+SpaceBeforeCpp11BracedList: true
+SortUsingDeclarations: true

@@ -24,7 +24,7 @@ void setup_signal_handlers(void) {
     struct sigaction sa;
 
     sa.sa_handler = signal_handler;
-    sa.sa_flags = SA_RESTART;
+    sa.sa_flags   = SA_RESTART;
 
     sigaction(SIGTSTP, &sa, 0);
     sigaction(SIGTERM, &sa, 0);

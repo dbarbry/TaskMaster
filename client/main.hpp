@@ -1,5 +1,6 @@
 #ifndef MAIN_HPP
 #define MAIN_HPP
+
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <sys/socket.h>
