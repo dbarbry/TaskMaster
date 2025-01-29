@@ -147,7 +147,7 @@ void    run_server(void) {
 }
 
 int main(void) {
-    daemonize();
+    // daemonize();
     run_server();
 
     return 0;

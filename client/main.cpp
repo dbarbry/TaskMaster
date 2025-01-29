@@ -61,6 +61,25 @@ class Shell {
             return true;
         }
 
+        int    attach_pty(void) {
+            int master_fd = open_pty();
+            int slave_fd;
+
+            if (master_fd == -1) return -1;
+            slave_fd = open_slave(master_fd);
+            if (slave_fd == -1) {
+                close(master_fd);
+                return 1;
+            }
+
+            write_to_pty(master_fd);
+            
+            close(master_fd);
+            close(slave_fd);
+
+            return 0;
+        }
+
         bool    analyze_cmd(int fd, const std::string &cmd) {
             if (cmd == "help") {
                 std::cout << "Server commands:" << std::endl;
@@ -74,6 +93,9 @@ class Shell {
             } else if (cmd == "exit") {
                 std::cout << "Leaving..." << std::endl;
                 return false;
+            } else if (cmd == "attach") {
+                if (attach_pty()) std::cout << "Attach failed" << std::endl;
+                return true;
             }
 
             if (!send_cmd(fd, cmd)) {
@@ -84,13 +106,10 @@ class Shell {
         }
 };
 
-int    main(void) {
-    int                 fd;
-    Shell               shell;
+void    run_server(int fd) {
     struct  sockaddr_un address;
-    char                buffer[BUFFER_SIZE];
 
-    if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+    if (fd < 0) {
         perror("socket failed");
         exit(1);
     }
@@ -103,10 +122,16 @@ int    main(void) {
         perror("connect failed");
         exit(1);
     }
+}
+
+int    main(void) {
+    int     fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    Shell   shell;
+
+    run_server(fd);
 
     std::cout << "Welcome to taskmaster client." << std::endl;
     std::cout << "type 'help' for help." << std::endl;
-
     setup_signal_handlers();
     shell.run(fd);
 
