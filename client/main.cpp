@@ -31,11 +31,18 @@ class Shell {
     
     private:
         std::string parse_cmd(const std::string &cmd) {
-            std::string clean_cmd = cmd;
+            std::istringstream  iss(cmd);
+            std::ostringstream  oss;
+            std::string         word;
+            bool                first = true;
 
-            clean_cmd.erase(0, clean_cmd.find_first_not_of(" "));
+            while (iss >> word) {
+                if (!first) oss << " ";
+                oss << word;
+                first = false;
+            }
 
-            return clean_cmd;
+            return oss.str();
         }
 
         bool    send_cmd(int fd, const std::string &cmd) {
@@ -62,8 +69,9 @@ class Shell {
         }
 
         int    attach_pty(void) {
-            int master_fd = open_pty();
-            int slave_fd;
+            int     master_fd = open_pty();
+            int     slave_fd;
+            pid_t   pid;
 
             if (master_fd == -1) return -1;
             slave_fd = open_slave(master_fd);
@@ -72,8 +80,24 @@ class Shell {
                 return 1;
             }
 
-            write_to_pty(master_fd);
-            
+            pid = fork();
+            if (pid < 0) {
+                perror("fork failed");
+                return 1;
+            }
+            if (pid == 0) {
+                attach_terminal(slave_fd);
+
+                while (true) {
+                    std::cout << "Hey there" << std::endl;
+                    sleep(2);
+                }
+            } else {
+                while (true) {
+                    read_from_pty(master_fd);
+                }
+            }
+
             close(master_fd);
             close(slave_fd);
 
@@ -81,6 +105,10 @@ class Shell {
         }
 
         bool    analyze_cmd(int fd, const std::string &cmd) {
+            std::string cleaned_cmd = parse_cmd(cmd);
+
+            if (cleaned_cmd.empty()) return true;
+
             if (cmd == "help") {
                 std::cout << "Server commands:" << std::endl;
                 std::cout << "  halt <serviceName> - pause a service" << std::endl;

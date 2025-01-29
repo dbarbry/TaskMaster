@@ -7,6 +7,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <iostream>
+#include <sstream>
 #include <unistd.h>
 #include <cstring>
 #include <string>
