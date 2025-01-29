@@ -1,17 +1,4 @@
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/un.h>
-
-#include <ctime>
-#include <iostream>
-#include <unistd.h>
-#include <signal.h>
-#include <cstring>
-#include <cstdlib>
-#include <csignal>
-#include <fcntl.h>
-
+#include "main.hpp"
 #include "./incs/parsing.hpp"
 
 #define LOG_PATH "/home/dhaya/taskmaster/log"
@@ -77,7 +64,7 @@ void    daemonize(void) {
     close(log_fd);
 }
 
-void    handle_client(int client_fd) {
+void    handle_client(int client_fd, int server_fd) {
     char    buffer[BUFFER_SIZE];
     ssize_t read_len;
 
@@ -94,8 +81,9 @@ void    handle_client(int client_fd) {
             break;
         }
         std::cout << "Received: " << buffer;
+        std::string clean_buffer(buffer);
 
-        std::string response = "Command received: " + std::string(buffer);
+        std::string response = handle_cmd(clean_buffer, server_fd);
         if (write(client_fd, response.c_str(), response.size()) <= 0) {
             perror("write failed");
             break;
@@ -141,7 +129,7 @@ void    run_server(void) {
 
         std::cout << "New client connected" << std::endl;
 
-        handle_client(client_fd);
+        handle_client(client_fd, server_fd);
     }
 
     close(server_fd);

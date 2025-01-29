@@ -111,10 +111,13 @@ class Shell {
 
             if (cmd == "help") {
                 std::cout << "Server commands:" << std::endl;
-                std::cout << "  halt <serviceName> - pause a service" << std::endl;
+                std::cout << "  status all - get the status of all services" << std::endl;
+                std::cout << "  status <serviceName> - get the status of a service" << std::endl;
+                std::cout << "  start <serviceName> - start a service" << std::endl;
                 std::cout << "  stop <serviceName> - stop a service" << std::endl;
                 std::cout << "  restart <serviceName> - restart a service" << std::endl;
-                std::cout << "  reload <serviceName> - reload a service" << std::endl;
+                std::cout << "  reload <pathToConfigFile> - reload the configfile" << std::endl;
+                std::cout << "  shutdown - shutdown taskmaster server" << std::endl;
                 std::cout << std::endl << "Client commands:" << std::endl;
                 std::cout << "  exit - exit the client" << std::endl << std::endl;
                 return true;
@@ -159,7 +162,7 @@ int    main(void) {
     run_server(fd);
 
     std::cout << "Welcome to taskmaster client." << std::endl;
-    std::cout << "type 'help' for help." << std::endl;
+    std::cout << "Type 'help' for help." << std::endl;
     setup_signal_handlers();
     shell.run(fd);
 

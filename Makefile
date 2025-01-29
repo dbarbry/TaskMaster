@@ -52,7 +52,7 @@ print_header:
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
 
 ./obj_daemon/%.o: ./$(NAME_SERVER)/%.cpp $(HDR_SERVER)
-	mkdir -p $(OBJ_SERVER_REP)
+	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/utils
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) -c $< -o $@
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
 
