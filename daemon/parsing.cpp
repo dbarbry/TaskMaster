@@ -162,5 +162,20 @@ void parsing(char **args)
         return;
     }
     std::map<std::string, ProgramConfig> programs = parse_config(filename); 
+
+    for (auto it = programs.begin(); it != programs.end(); ) {
+    if (!it->second.isValid()) {
+        std::cerr << "Erreur: Configuration invalide pour le programme " << it->first << ". Il sera ignoré." << std::endl;
+        it = programs.erase(it);
+    } else {
+        ++it;
+    }
+}
+
+if (programs.empty()) {
+    std::cerr << "Aucun programme valide dans la configuration. Arrêt du programme." << std::endl;
+    exit(EXIT_FAILURE);
+}
+
     log_config(programs);   
 }

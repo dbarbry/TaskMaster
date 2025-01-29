@@ -16,7 +16,7 @@ OBJ_CLIENT		=	$(addprefix ./$(OBJ_CLIENT_REP)/, $(SRC_CLIENT:.cpp=.o))
 OBJ_SERVER		=	$(addprefix ./$(OBJ_SERVER_REP)/, $(SRC_SERVER:.cpp=.o))
 
 CXX				=	g++
-FLAGS			=	-Wall -Werror -Wextra
+FLAGS			=	-Wall -Werror -Wextra -std=c++20
 RDLINE_FLAGS	=	-lreadline 
 HDR_FLAGS_D		=	-I daemon/
 HDR_FLAGS_C		=	-I client/
