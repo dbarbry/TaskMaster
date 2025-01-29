@@ -4,3 +4,7 @@ a.out
 */*.out
 .vscode
 log/
+obj_client/
+obj_daemon/
+client.out
+daemon.out
