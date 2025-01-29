@@ -1,13 +1,13 @@
-#include <sys/types.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-
 #include <unistd.h>
-#include <iostream>
+
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fcntl.h>
-#include <cstdio>
+#include <iostream>
 
 int open_pty(void) {
     int master_fd = posix_openpt(O_RDWR | O_NOCTTY);
@@ -27,14 +27,14 @@ int open_pty(void) {
 }
 
 int open_slave(int master_fd) {
-    char    *name = ptsname(master_fd);
-    int     slave_fd;
+    char *name = ptsname(master_fd);
+    int   slave_fd;
 
     if (!name) {
         perror("ptsname failed");
         return -1;
     }
-    
+
     slave_fd = open(name, O_RDWR);
     if (slave_fd == -1) {
         perror("open slave failed");
@@ -44,7 +44,7 @@ int open_slave(int master_fd) {
     return slave_fd;
 }
 
-void    attach_terminal(int slave_fd) {
+void attach_terminal(int slave_fd) {
     setsid();
     ioctl(slave_fd, TIOCSCTTY, 0);
 
@@ -55,12 +55,12 @@ void    attach_terminal(int slave_fd) {
     close(slave_fd);
 }
 
-void    write_to_pty(int master_fd) {
+void write_to_pty(int master_fd) {
     std::string msg = "Hey there\n";
     write(master_fd, msg.c_str(), msg.length());
 }
 
-void    read_from_pty(int fd) {
+void read_from_pty(int fd) {
     char    buffer[256];
     ssize_t len = read(fd, buffer, sizeof(buffer) - 1);
 

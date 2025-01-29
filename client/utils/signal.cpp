@@ -1,8 +1,9 @@
-#include <csignal>
-#include <iostream>
 #include <unistd.h>
 
-void    signal_handler(int signum) {
+#include <csignal>
+#include <iostream>
+
+void signal_handler(int signum) {
     switch (signum) {
         case SIGTSTP:
             std::cout << std::endl << "Ctrl+Z is blocked in this shell" << std::endl;
@@ -19,8 +20,8 @@ void    signal_handler(int signum) {
     }
 }
 
-void    setup_signal_handlers(void) {
-    struct sigaction    sa;
+void setup_signal_handlers(void) {
+    struct sigaction sa;
 
     sa.sa_handler = signal_handler;
     sa.sa_flags = SA_RESTART;
