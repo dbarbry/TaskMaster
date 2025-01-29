@@ -1,3 +1,6 @@
 a.out
 .vscode
 .objs
+*/*.out
+.vscode
+log/
