@@ -141,7 +141,7 @@ void log_config(const std::map<std::string, ProgramConfig>& programs) {
     }
 }
 
-void parsing(char **args)
+std::map<std::string, ProgramConfig>  parsing(char **args)
 {
     if (args[1] == nullptr) {
         std::cout << "Aucun fichier spécifié." << std::endl;
