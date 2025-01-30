@@ -146,5 +146,6 @@ bool isValid() {
 };
 
 std::map<std::string, ProgramConfig>  parsing(char **args);
+void log_config(const std::map<std::string, ProgramConfig>& programs);
 
 #endif

@@ -145,21 +145,21 @@ std::map<std::string, ProgramConfig>  parsing(char **args)
 {
     if (args[1] == nullptr) {
         std::cout << "Aucun fichier spécifié." << std::endl;
-        return;
+        return{};
     }
     std::string filename = args[1];
     if (filename.size() < 5 || filename.substr(filename.size() - 5) != ".conf") {
         std::cout << "Le fichier doit avoir une extension .conf." << std::endl;
-        return;
+        return{};
     }
     if (!std::filesystem::exists(filename)) {
         std::cout << "Le fichier spécifié n'existe pas : " << filename << std::endl;
-        return;
+        return{};
     }
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cout << "Impossible d'ouvrir le fichier : " << filename << std::endl;
-        return;
+        return{};
     }
     std::map<std::string, ProgramConfig> programs = parse_config(filename); 
 
@@ -176,6 +176,6 @@ if (programs.empty()) {
     std::cerr << "Aucun programme valide dans la configuration. Arrêt du programme." << std::endl;
     exit(EXIT_FAILURE);
 }
-
-    log_config(programs);   
+return programs;
+    // log_config(programs);   
 }

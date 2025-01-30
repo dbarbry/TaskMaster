@@ -1,4 +1,4 @@
-#include "main.hpp"
+#include "./incs/main.hpp"
 #include "./incs/parsing.hpp"
 
 #define LOG_PATH "/home/dhaya/taskmaster/log"
@@ -138,7 +138,9 @@ void    run_server(void) {
 int main(int argc, char **argv) {
     if (argc > 1) {
         std::cout << ".conf : " << argv[1] << std::endl;
-        parsing(argv);
+        std::map<std::string, ProgramConfig> programs = parsing(argv);
+        log_config(programs);
+        exec_programs(programs);
     }
     // daemonize();
     run_server();
