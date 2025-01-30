@@ -145,8 +145,6 @@ bool isValid() {
     }
 };
 
-
-
-void parsing(char **args);
+std::map<std::string, ProgramConfig>  parsing(char **args);
 
 #endif
