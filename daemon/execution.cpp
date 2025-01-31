@@ -13,8 +13,31 @@
 #include <memory>
 #include <sstream>
 #include <vector>
+#include <signal.h>
+#include <unistd.h>
+
+
 
 volatile sig_atomic_t child_exited = 0;
+
+int execvpe_compat(const char *file, char *const argv[], char *const envp[]) {
+    if (strchr(file, '/')) {
+        execve(file, argv, envp);
+        return -1;
+    }
+
+    const char *path = getenv("PATH");
+    if (!path) path = "/usr/bin:/bin:/usr/sbin:/sbin";
+
+    std::istringstream pathStream(path);
+    std::string dir;
+    while (std::getline(pathStream, dir, ':')) {
+        std::string fullPath = dir + "/" + file;
+        execve(fullPath.c_str(), argv, envp);
+    }
+
+    return -1;
+}
 
 void parse_command(const std::string &cmd, std::vector<std::unique_ptr<char[]>> &storage,
                    std::vector<char *> &av) {
@@ -126,9 +149,10 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
             std::cerr << "Empty command for: " << name << std::endl;
             _exit(1);
         }
+        
 
         std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
-        execvpe(av[0], av.data(), envp.data());
+        execvpe_compat(av[0], av.data(), envp.data());
 
         int err = errno;
         std::cerr << "Execution failed for: " << config.getCmd() << " (Error: " << strerror(err)
