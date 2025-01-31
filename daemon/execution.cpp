@@ -11,6 +11,50 @@
 #include <sstream>
 #include <vector>
 
+void redirect_output(const std::string &name, const std::string &stdout_file,
+                     const std::string &stderr_file) {
+    int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+
+    if (stdout_fd < 0) std::cerr << name << " stdout logging file failed to open.";
+    if (stderr_fd < 0) std::cerr << name << " stderr logging file failed to open.";
+
+    dup2(stdout_fd, STDOUT_FILENO);
+    dup2(stderr_fd, STDERR_FILENO);
+
+    close(stdout_fd);
+    close(stderr_fd);
+}
+
+void set_environment(const std::map<std::string, std::string> &env) {
+    for (const auto &[key, value] : env) {
+        setenv(key.c_str(), value.c_str(), 1);
+    }
+}
+
+void monitoring(std::vector<pid_t> &pids) {
+    while (!pids.empty()) {
+        for (auto it = pids.begin(); it != pids.end();) {
+            int   status;
+            pid_t result = waitpid(*it, &status, WNOHANG);
+
+            if (result > 0) {
+                if (WIFEXITED(status)) {
+                    std::cout << "[PID " << *it << "] exited with code: " << WEXITSTATUS(status)
+                              << std::endl;
+                } else if (WIFSIGNALED(status)) {
+                    std::cout << "[PID " << *it << "] killed by signal: " << WEXITSTATUS(status)
+                              << std::endl;
+                }
+                it = pids.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        sleep(1);
+    }
+}
+
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
     std::vector<pid_t> pids;
 

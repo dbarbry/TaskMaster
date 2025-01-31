@@ -110,12 +110,20 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 std::stringstream                  ss(value);
                 std::string                        env_pair;
                 std::map<std::string, std::string> env_map;
+
                 while (std::getline(ss, env_pair, ' ')) {
                     size_t equal_pos = env_pair.find('=');
                     if (equal_pos != std::string::npos) {
                         std::string env_key   = env_pair.substr(0, equal_pos);
                         std::string env_value = env_pair.substr(equal_pos + 1);
-                        env_map[env_key]      = env_value;
+
+                        if (!env_value.empty() && env_value.front() == '"' &&
+                            env_value.back() == '"') {
+                            env_value =
+                                env_value.substr(1, env_value.length() - 2);  // Remove quotes
+                        }
+
+                        env_map[env_key] = env_value;
                     }
                 }
                 current_config.setEnv(env_map);
