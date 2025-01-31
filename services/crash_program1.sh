@@ -1,3 +1,3 @@
 #!/bin/bash
-echo "This script will crash now..."
-exit 1
+sleep 5
+exit 0

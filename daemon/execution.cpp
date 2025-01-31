@@ -109,7 +109,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         std::cerr << "Fork failed for: " << name << std::endl;
         return -1;
     }
-    if (pid == 0) {  // Child process
+    if (pid == 0) {
         std::cout << "Launching: " << name << " (" << config.getCmd() << ")" << std::endl;
 
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
@@ -119,10 +119,8 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 
         redirect_output(name, config.getStdoutFile(), config.getStderrFile());
 
-        // Parse environment variables
         set_environment(config.getEnv(), env_storage, envp);
 
-        // Parse command
         parse_command(config.getCmd(), storage, av);
         if (av.empty()) {
             std::cerr << "Empty command for: " << name << std::endl;
