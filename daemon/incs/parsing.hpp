@@ -1,49 +1,45 @@
 #ifndef PARSING_HPP
 #define PARSING_HPP
 
-#include <iostream>
 #include <fstream>
-#include <string>
+#include <iostream>
 #include <map>
-#include <vector>
 #include <sstream>
+#include <string>
+#include <vector>
 
 class ProgramConfig {
-private : 
-
-    std::string cmd;
-    int numprocs = -1;
-    std::string umask = "022";
-    std::string workingdir;
-    bool autostart = false;
-    std::string autorestart = "unexpected";
-    std::vector<int> exitcodes;
-    int startretries = -1;
-    int starttime = -1;
-    std::string stopsignal = "TERM";
-    int stoptime = -1;
-    std::string stdout_file = "/dev/null";
-    std::string stderr_file = "/dev/null";
+   private:
+    std::string                        cmd;
+    int                                numprocs = -1;
+    std::string                        umask    = "022";
+    std::string                        workingdir;
+    bool                               autostart   = false;
+    std::string                        autorestart = "unexpected";
+    std::vector<int>                   exitcodes;
+    int                                startretries = -1;
+    int                                starttime    = -1;
+    std::string                        stopsignal   = "TERM";
+    int                                stoptime     = -1;
+    std::string                        stdout_file  = "/dev/null";
+    std::string                        stderr_file  = "/dev/null";
     std::map<std::string, std::string> env;
 
-public:
-
-
-
+   public:
     // Getters
-    std::string getCmd() const { return cmd; }
-    int getNumprocs() const { return numprocs; }
-    std::string getUmask() const { return umask; }
-    std::string getWorkingDir() const { return workingdir; }
-    bool getAutostart() const { return autostart; }
-    std::string getAutorestart() const { return autorestart; }
-    const std::vector<int>& getExitcodes() const { return exitcodes; }
-    int getStartretries() const { return startretries; }
-    int getStarttime() const { return starttime; }
-    std::string getStopsignal() const { return stopsignal; }
-    int getStoptime() const { return stoptime; }
-    std::string getStdoutFile() const { return stdout_file; }
-    std::string getStderrFile() const { return stderr_file; }
+    std::string                               getCmd() const { return cmd; }
+    int                                       getNumprocs() const { return numprocs; }
+    std::string                               getUmask() const { return umask; }
+    std::string                               getWorkingDir() const { return workingdir; }
+    bool                                      getAutostart() const { return autostart; }
+    std::string                               getAutorestart() const { return autorestart; }
+    const std::vector<int>&                   getExitcodes() const { return exitcodes; }
+    int                                       getStartretries() const { return startretries; }
+    int                                       getStarttime() const { return starttime; }
+    std::string                               getStopsignal() const { return stopsignal; }
+    int                                       getStoptime() const { return stoptime; }
+    std::string                               getStdoutFile() const { return stdout_file; }
+    std::string                               getStderrFile() const { return stderr_file; }
     const std::map<std::string, std::string>& getEnv() const { return env; }
 
     // Setters
@@ -88,7 +84,7 @@ public:
         }
     }
 
-bool isValid() {
+    bool isValid() {
         bool valid = true;
 
         if (cmd.empty()) {
@@ -109,7 +105,8 @@ bool isValid() {
         }
 
         if (startretries == -1) {
-            std::cerr << "Avertissement: startretries non défini, valeur par défaut = 3" << std::endl;
+            std::cerr << "Avertissement: startretries non défini, valeur par défaut = 3"
+                      << std::endl;
             startretries = 3;
         } else if (startretries <= 0) {
             std::cerr << "Avertissement: startretries invalide, valeur par défaut = 3" << std::endl;
@@ -133,7 +130,8 @@ bool isValid() {
         }
 
         if (exitcodes.empty()) {
-            std::cerr << "Avertissement: exitcodes non défini, valeur par défaut = {0, 2}" << std::endl;
+            std::cerr << "Avertissement: exitcodes non défini, valeur par défaut = {0, 2}"
+                      << std::endl;
             exitcodes = {0, 2};
         }
 
@@ -145,7 +143,7 @@ bool isValid() {
     }
 };
 
-std::map<std::string, ProgramConfig>  parsing(char **args);
+std::map<std::string, ProgramConfig> parsing(char** args);
 void log_config(const std::map<std::string, ProgramConfig>& programs);
 
 #endif

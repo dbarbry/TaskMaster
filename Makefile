@@ -32,9 +32,6 @@ NAME_LOG		=	log
 all: print_header $(NAME)
 .PHONY: all
 
-prerequisities:
-	sudo apt install clang-format -y
-.PHONY: prerequesities
 print_header:
 	@echo "$(BBLU)==========================================================="
 	@echo "$(BBLU)"
@@ -48,6 +45,11 @@ print_header:
 	@echo "$(BBLU)==================> by rgeral & dbarbry <=================="
 	@echo "$(RST)"
 .PHONY: print_header
+
+ifeq (server,$(firstword $(MAKECMDGOALS)))
+  RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(RUN_ARGS):;@:)
+endif
 
 ./obj_client/%.o: ./$(NAME_CLIENT)/%.cpp $(HDR_CLIENT)
 	mkdir -p $(OBJ_CLIENT_REP) $(OBJ_CLIENT_REP)/utils
@@ -86,7 +88,7 @@ server:
 		exit 1; \
 	fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[47G[✔]$(RST)"
-	@./$(NAME_SERVER).out
+	@./$(NAME_SERVER).out $(RUN_ARGS)
 .PHONY: server
 
 kill:

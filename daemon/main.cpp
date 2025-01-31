@@ -1,14 +1,15 @@
 #include "./incs/main.hpp"
+
 #include "./incs/parsing.hpp"
 
 #define LOG_PATH "/home/dhaya/taskmaster/log"
 #define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024
 
-void    daemonize(void) {
+void daemonize(void) {
     char        log_filename[256];
     std::string path_filename;
-    struct tm   *time_info;
+    struct tm  *time_info;
     int         log_fd;
     pid_t       pid;
     time_t      now;
@@ -50,7 +51,7 @@ void    daemonize(void) {
         close(fd);
     }
 
-    now = time(nullptr);
+    now       = time(nullptr);
     time_info = localtime(&now);
     strftime(log_filename, sizeof(log_filename), "/log-%Y_%m_%d-daemon.txt", time_info);
     path_filename.append(LOG_PATH);
@@ -58,20 +59,20 @@ void    daemonize(void) {
     log_fd = open(path_filename.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
     if (log_fd < 0) exit(1);
-    
+
     dup2(log_fd, STDOUT_FILENO);
     dup2(log_fd, STDERR_FILENO);
     close(log_fd);
 }
 
-void    handle_client(int client_fd, int server_fd) {
+void handle_client(int client_fd, int server_fd) {
     char    buffer[BUFFER_SIZE];
     ssize_t read_len;
 
     while (true) {
         memset(buffer, 0, BUFFER_SIZE);
         read_len = read(client_fd, buffer, BUFFER_SIZE - 1);
-        
+
         if (read_len < 0) {
             perror("read failed");
             break;
@@ -88,15 +89,14 @@ void    handle_client(int client_fd, int server_fd) {
             perror("write failed");
             break;
         }
-
     }
 
     close(client_fd);
 }
 
-void    run_server(void) {
-    int                 server_fd, client_fd;
-    struct sockaddr_un  address;
+void run_server(void) {
+    int                server_fd, client_fd;
+    struct sockaddr_un address;
 
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         perror("socket failed");
@@ -135,13 +135,18 @@ void    run_server(void) {
     close(server_fd);
     unlink(SOCKET_PATH);
 }
+
 int main(int argc, char **argv) {
-    if (argc > 1) {
-        std::cout << ".conf : " << argv[1] << std::endl;
-        std::map<std::string, ProgramConfig> programs = parsing(argv);
-        log_config(programs);
-        exec_programs(programs);
+    if (argc != 2) {
+        std::cout << "Usage: ./daemon.out <file.conf>" << std::endl;
+        return 1;
     }
+
+    std::cout << ".conf : " << argv[1] << std::endl;
+    std::map<std::string, ProgramConfig> programs = parsing(argv);
+    log_config(programs);
+    exec_programs(programs);
+
     // daemonize();
     run_server();
 

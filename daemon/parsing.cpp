@@ -1,19 +1,16 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
 #include "./incs/parsing.hpp"
-#include <iostream>
+
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <filesystem> 
-
 
 std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
     std::map<std::string, ProgramConfig> programs;
-    std::ifstream file(filepath);
-    std::string line;
-    std::string current_section;
+    std::ifstream                        file(filepath);
+    std::string                          line;
+    std::string                          current_section;
 
     if (!file.is_open()) {
         std::cerr << "Failed to open config file." << std::endl;
@@ -38,19 +35,18 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
             size_t end_pos = line.find(']');
             if (end_pos == std::string::npos) {
                 std::cerr << "Invalid section syntax: " << line << std::endl;
-                continue; 
+                continue;
             }
             current_section = line.substr(1, end_pos - 1);
-            current_config = ProgramConfig();  
-        }
-        else {
+            current_config  = ProgramConfig();
+        } else {
             size_t delimiter_pos = line.find('=');
             if (delimiter_pos == std::string::npos) {
                 std::cerr << "Invalid key=value syntax: " << line << std::endl;
                 continue;
             }
 
-            std::string key = line.substr(0, delimiter_pos);
+            std::string key   = line.substr(0, delimiter_pos);
             std::string value = line.substr(delimiter_pos + 1);
 
             key.erase(0, key.find_first_not_of(" \t"));
@@ -76,8 +72,8 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 current_config.setAutorestart(value);
             } else if (key == "exitcodes") {
                 std::stringstream ss(value);
-                std::string temp;
-                std::vector<int> exitcodes;
+                std::string       temp;
+                std::vector<int>  exitcodes;
                 while (std::getline(ss, temp, ' ')) {
                     try {
                         exitcodes.push_back(std::stoi(temp));
@@ -111,15 +107,15 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
             } else if (key == "stderr") {
                 current_config.setStderrFile(value);
             } else if (key == "env") {
-                std::stringstream ss(value);
-                std::string env_pair;
+                std::stringstream                  ss(value);
+                std::string                        env_pair;
                 std::map<std::string, std::string> env_map;
                 while (std::getline(ss, env_pair, ' ')) {
                     size_t equal_pos = env_pair.find('=');
                     if (equal_pos != std::string::npos) {
-                        std::string env_key = env_pair.substr(0, equal_pos);
+                        std::string env_key   = env_pair.substr(0, equal_pos);
                         std::string env_value = env_pair.substr(equal_pos + 1);
-                        env_map[env_key] = env_value;
+                        env_map[env_key]      = env_value;
                     }
                 }
                 current_config.setEnv(env_map);
@@ -141,41 +137,42 @@ void log_config(const std::map<std::string, ProgramConfig>& programs) {
     }
 }
 
-std::map<std::string, ProgramConfig>  parsing(char **args)
-{
+std::map<std::string, ProgramConfig> parsing(char** args) {
     if (args[1] == nullptr) {
         std::cout << "Aucun fichier spécifié." << std::endl;
-        return{};
+        return {};
     }
     std::string filename = args[1];
     if (filename.size() < 5 || filename.substr(filename.size() - 5) != ".conf") {
         std::cout << "Le fichier doit avoir une extension .conf." << std::endl;
-        return{};
+        return {};
     }
     if (!std::filesystem::exists(filename)) {
         std::cout << "Le fichier spécifié n'existe pas : " << filename << std::endl;
-        return{};
+        return {};
     }
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cout << "Impossible d'ouvrir le fichier : " << filename << std::endl;
-        return{};
+        return {};
     }
-    std::map<std::string, ProgramConfig> programs = parse_config(filename); 
+    std::map<std::string, ProgramConfig> programs = parse_config(filename);
 
-    for (auto it = programs.begin(); it != programs.end(); ) {
-    if (!it->second.isValid()) {
-        std::cerr << "Erreur: Configuration invalide pour le programme " << it->first << ". Il sera ignoré." << std::endl;
-        it = programs.erase(it);
-    } else {
-        ++it;
+    for (auto it = programs.begin(); it != programs.end();) {
+        if (!it->second.isValid()) {
+            std::cerr << "Erreur: Configuration invalide pour le programme " << it->first
+                      << ". Il sera ignoré." << std::endl;
+            it = programs.erase(it);
+        } else {
+            ++it;
+        }
     }
-}
 
-if (programs.empty()) {
-    std::cerr << "Aucun programme valide dans la configuration. Arrêt du programme." << std::endl;
-    exit(EXIT_FAILURE);
-}
-return programs;
-    // log_config(programs);   
+    if (programs.empty()) {
+        std::cerr << "Aucun programme valide dans la configuration. Arrêt du programme."
+                  << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    return programs;
+    // log_config(programs);
 }

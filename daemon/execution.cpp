@@ -1,14 +1,15 @@
-#include <iostream>
-#include <unistd.h>
+#include "./incs/execution.hpp"
+
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <vector>
+#include <unistd.h>
+
 #include <cstring>
-#include <fcntl.h>
+#include <iostream>
 #include <map>
 #include <sstream>
-
-#include "./incs/execution.hpp"
+#include <vector>
 
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
     std::vector<pid_t> pids;
@@ -21,14 +22,15 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
             continue;
         }
 
-        if (pid == 0) { 
-            std::cout << "Lancement du programme: " << name << " (" << config.getCmd() << ")" << std::endl;
+        if (pid == 0) {
+            std::cout << "Lancement du programme: " << name << " (" << config.getCmd() << ")"
+                      << std::endl;
 
             std::vector<std::string> args;
-            std::string cmd = config.getCmd();
-            
+            std::string              cmd = config.getCmd();
+
             std::istringstream iss(cmd);
-            std::string arg;
+            std::string        arg;
             while (iss >> arg) {
                 args.push_back(arg);
             }
@@ -62,7 +64,8 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
         int status;
         waitpid(pid, &status, 0);
         if (WIFEXITED(status)) {
-            std::cout << "[PID " << pid << "] Terminé avec le code: " << WEXITSTATUS(status) << std::endl;
+            std::cout << "[PID " << pid << "] Terminé avec le code: " << WEXITSTATUS(status)
+                      << std::endl;
         } else if (WIFSIGNALED(status)) {
             std::cout << "[PID " << pid << "] Tué par le signal: " << WTERMSIG(status) << std::endl;
         }
