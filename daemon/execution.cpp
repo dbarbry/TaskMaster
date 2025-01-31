@@ -10,14 +10,18 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <vector>
 
 volatile sig_atomic_t child_exited = 0;
 
-std::vector<char *> parse_command(const std::string &cmd) {
+void parse_command(const std::string &cmd, std::vector<std::unique_ptr<char[]>> &storage,
+                   std::vector<char *> &av) {
+    storage.clear();
+    av.clear();
+
     std::vector<std::string> args;
-    std::vector<char *>      av;
     std::istringstream       iss(cmd);
     std::string              token;
     std::string              current_arg;
@@ -28,12 +32,10 @@ std::vector<char *> parse_command(const std::string &cmd) {
         if (c == '"' || c == '\'') {
             char quote = iss.get();
             current_arg.clear();
-
             while (iss.get(c)) {
                 if (c == quote) break;
                 current_arg += c;
             }
-
             args.push_back(current_arg);
         } else {
             iss >> token;
@@ -42,12 +44,11 @@ std::vector<char *> parse_command(const std::string &cmd) {
     }
 
     for (auto &s : args) {
-        av.push_back(const_cast<char *>(s.c_str()));
-        std::cout << s.c_str();
+        storage.push_back(std::make_unique<char[]>(s.size() + 1));
+        std::strcpy(storage.back().get(), s.c_str());
+        av.push_back(storage.back().get());
     }
     av.push_back(nullptr);
-
-    return av;
 }
 
 void redirect_output(const std::string &name, const std::string &stdout_file,
@@ -58,27 +59,28 @@ void redirect_output(const std::string &name, const std::string &stdout_file,
     if (stdout_fd < 0) std::cerr << name << " stdout logging file failed to open.";
     if (stderr_fd < 0) std::cerr << name << " stderr logging file failed to open.";
 
-    dup2(stdout_fd, STDOUT_FILENO);
-    dup2(stderr_fd, STDERR_FILENO);
-
+    if (stdout_fd >= 0 && dup2(stdout_fd, STDOUT_FILENO) < 0) {
+        std::cerr << "dup2 failed for stdout: " << strerror(errno) << std::endl;
+    }
+    if (stderr_fd >= 0 && dup2(stderr_fd, STDERR_FILENO) < 0) {
+        std::cerr << "dup2 failed for stderr: " << strerror(errno) << std::endl;
+    }
     close(stdout_fd);
     close(stderr_fd);
 }
 
-std::vector<char *> set_environment(const std::map<std::string, std::string> &env) {
-    std::vector<std::string> env_strings;
-    std::vector<char *>      envp;
+void set_environment(const std::map<std::string, std::string> &env,
+                     std::vector<std::unique_ptr<char[]>> &storage, std::vector<char *> &envp) {
+    storage.clear();
+    envp.clear();
 
     for (const auto &[key, value] : env) {
-        env_strings.push_back(key + "=" + value);
-    }
-
-    for (auto &s : env_strings) {
-        envp.push_back(s.data());
+        std::string env_entry = key + "=" + value;
+        storage.push_back(std::make_unique<char[]>(env_entry.size() + 1));
+        std::strcpy(storage.back().get(), env_entry.c_str());
+        envp.push_back(storage.back().get());
     }
     envp.push_back(nullptr);
-
-    return envp;
 }
 
 void sigchld_handler(int sig) {
@@ -96,15 +98,18 @@ void setup_signal_handlers() {
 }
 
 pid_t launch_program(const std::string &name, const ProgramConfig &config) {
-    pid_t               pid;
-    std::vector<char *> envp;
+    pid_t                                pid;
+    std::vector<std::unique_ptr<char[]>> storage;
+    std::vector<std::unique_ptr<char[]>> env_storage;
+    std::vector<char *>                  av;
+    std::vector<char *>                  envp;
 
     pid = fork();
     if (pid < 0) {
         std::cerr << "Fork failed for: " << name << std::endl;
         return -1;
     }
-    if (pid == 0) {
+    if (pid == 0) {  // Child process
         std::cout << "Launching: " << name << " (" << config.getCmd() << ")" << std::endl;
 
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
@@ -113,11 +118,12 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         }
 
         redirect_output(name, config.getStdoutFile(), config.getStderrFile());
-        envp = set_environment(config.getEnv());
 
-        std::vector<char *> av = parse_command(config.getCmd());
-        std::cout << "Av 0 1: " << av[0] << av[1] << std::endl;
+        // Parse environment variables
+        set_environment(config.getEnv(), env_storage, envp);
 
+        // Parse command
+        parse_command(config.getCmd(), storage, av);
         if (av.empty()) {
             std::cerr << "Empty command for: " << name << std::endl;
             _exit(1);
@@ -126,7 +132,9 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
         execvpe(av[0], av.data(), envp.data());
 
-        std::cerr << "Execution failed for: " << config.getCmd() << std::endl;
+        int err = errno;
+        std::cerr << "Execution failed for: " << config.getCmd() << " (Error: " << strerror(err)
+                  << ")\n";
         _exit(1);
     }
 
