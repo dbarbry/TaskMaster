@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <csignal>
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <sstream>
-#include <csignal>
 #include <vector>
 
 volatile sig_atomic_t child_exited = 0;
@@ -133,44 +133,48 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
 
     setup_signal_handlers();
     for (const auto &[name, config] : programs) {
-        const int max_retries = config.getStartretries();
-        int       retries     = 0;
-        pid_t     pid;
-        int       status;
+        const int max_retries   = config.getStartretries();
+        int       nbr_instances = config.getNumprocs();
 
-        while (retries < max_retries) {
-            pid = launch_program(name, config);
-            if (pid < 0) break;
-            waitpid(pid, &status, 0);
+        for (int i = 0; i < nbr_instances; i++) {
+            int   retries = 0;
+            pid_t pid;
+            int   status;
 
-            if (WIFEXITED(status)) {
-                int exit_code = WEXITSTATUS(status);
-                std::cout << "[PID " << pid << "] ended with code: " << exit_code << std::endl;
+            while (retries < max_retries) {
+                pid = launch_program(name, config);
+                if (pid < 0) break;
+                waitpid(pid, &status, 0);
 
-                const std::vector<int> &valid_exit_codes = config.getExitcodes();
-                if (std::find(valid_exit_codes.begin(), valid_exit_codes.end(), exit_code) !=
-                    valid_exit_codes.end()) {
-                    std::cout << "[PID " << pid << "] Exit code is allowed, no restart needed."
+                if (WIFEXITED(status)) {
+                    int exit_code = WEXITSTATUS(status);
+                    std::cout << "[PID " << pid << "] ended with code: " << exit_code << std::endl;
+
+                    const std::vector<int> &valid_exit_codes = config.getExitcodes();
+                    if (std::find(valid_exit_codes.begin(), valid_exit_codes.end(), exit_code) !=
+                        valid_exit_codes.end()) {
+                        std::cout << "[PID " << pid << "] Exit code is allowed, no restart needed."
+                                  << std::endl;
+                        break;
+                    }
+
+                    std::cout << "[PID " << pid << "] Unexpected exit code, restarting..."
                               << std::endl;
-                    break;
+                } else if (WIFSIGNALED(status)) {
+                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status)
+                              << std::endl;
                 }
 
-                std::cout << "[PID " << pid << "] Unexpected exit code, restarting..." << std::endl;
-            } else if (WIFSIGNALED(status)) {
-                std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status)
-                          << std::endl;
+                retries++;
+                if (retries < max_retries) {
+                    std::cerr << "Restarting " << name << " (" << retries << "/" << max_retries
+                              << ")" << std::endl;
+                } else {
+                    std::cerr << "Max retries reached for " << name << ", giving up." << std::endl;
+                }
             }
-
-            retries++;
-            if (retries < max_retries) {
-                std::cerr << "Restarting " << name << " (" << retries << "/" << max_retries << ")"
-                          << std::endl;
-            } else {
-                std::cerr << "Max retries reached for " << name << ", giving up." << std::endl;
-            }
+            pids.push_back(pid);
         }
-
-        pids.push_back(pid);
     }
 
     monitoring(pids);
