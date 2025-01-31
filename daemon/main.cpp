@@ -1,7 +1,8 @@
 #include "./incs/main.hpp"
 
-#include "./incs/parsing.hpp"
+#include <filesystem>
 
+#include "./incs/parsing.hpp"
 #define LOG_PATH "/home/dhaya/taskmaster/log"
 #define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024
@@ -136,14 +137,34 @@ void run_server(void) {
     unlink(SOCKET_PATH);
 }
 
-int main(int argc, char **argv) {
-    if (argc != 2) {
-        std::cout << "Usage: ./daemon.out <file.conf>" << std::endl;
+int check_file(std::string filename) {
+    std::ifstream file(filename);
+
+    if (filename.size() < 5 || filename.substr(filename.size() - 5) != ".conf") {
+        std::cout << "Must be a .conf extension file." << std::endl;
+        return 1;
+    }
+    if (!std::filesystem::exists(filename)) {
+        std::cout << filename << " file doesn't exist." << std::endl;
+        return 1;
+    }
+    if (!file.is_open()) {
+        std::cout << "Can't open: " << filename << std::endl;
         return 1;
     }
 
-    std::cout << ".conf : " << argv[1] << std::endl;
-    std::map<std::string, ProgramConfig> programs = parsing(argv);
+    return 0;
+}
+
+int main(int ac, char **av) {
+    if (ac != 2 || check_file(av[1])) {
+        std::cerr << "Usage: ./daemon.out <file.conf>" << std::endl;
+        std::cerr << "Or   :  make server <file.conf>" << std::endl;
+        return 1;
+    }
+
+    std::cout << ".conf : " << av[1] << std::endl;
+    std::map<std::string, ProgramConfig> programs = parsing(av[1]);
     log_config(programs);
     exec_programs(programs);
 

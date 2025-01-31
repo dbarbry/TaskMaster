@@ -143,7 +143,7 @@ class ProgramConfig {
     }
 };
 
-std::map<std::string, ProgramConfig> parsing(char** args);
+std::map<std::string, ProgramConfig> parsing(std::string filename);
 void log_config(const std::map<std::string, ProgramConfig>& programs);
 
 #endif

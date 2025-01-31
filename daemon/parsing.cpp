@@ -137,31 +137,13 @@ void log_config(const std::map<std::string, ProgramConfig>& programs) {
     }
 }
 
-std::map<std::string, ProgramConfig> parsing(char** args) {
-    if (args[1] == nullptr) {
-        std::cout << "Aucun fichier spécifié." << std::endl;
-        return {};
-    }
-    std::string filename = args[1];
-    if (filename.size() < 5 || filename.substr(filename.size() - 5) != ".conf") {
-        std::cout << "Le fichier doit avoir une extension .conf." << std::endl;
-        return {};
-    }
-    if (!std::filesystem::exists(filename)) {
-        std::cout << "Le fichier spécifié n'existe pas : " << filename << std::endl;
-        return {};
-    }
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cout << "Impossible d'ouvrir le fichier : " << filename << std::endl;
-        return {};
-    }
+std::map<std::string, ProgramConfig> parsing(std::string filename) {
     std::map<std::string, ProgramConfig> programs = parse_config(filename);
 
     for (auto it = programs.begin(); it != programs.end();) {
         if (!it->second.isValid()) {
-            std::cerr << "Erreur: Configuration invalide pour le programme " << it->first
-                      << ". Il sera ignoré." << std::endl;
+            std::cerr << "Invalid configuration for service: " << it->first << ". Service skipped."
+                      << std::endl;
             it = programs.erase(it);
         } else {
             ++it;
@@ -169,10 +151,10 @@ std::map<std::string, ProgramConfig> parsing(char** args) {
     }
 
     if (programs.empty()) {
-        std::cerr << "Aucun programme valide dans la configuration. Arrêt du programme."
-                  << std::endl;
-        exit(EXIT_FAILURE);
+        std::cerr << "No vald service configuration found. Leaving..." << std::endl;
+        exit(1);
     }
-    return programs;
     // log_config(programs);
+
+    return programs;
 }
