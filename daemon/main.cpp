@@ -20,9 +20,7 @@ void daemonize(void) {
         perror("fork failed");
         exit(1);
     }
-    if (pid > 0) {
-        exit(0);
-    }
+    if (pid > 0) exit(0);
 
     if (setsid() < 0) {
         perror("setsid failed");
