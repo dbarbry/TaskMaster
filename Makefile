@@ -16,7 +16,8 @@ OBJ_CLIENT		=	$(addprefix ./$(OBJ_CLIENT_REP)/, $(SRC_CLIENT:.cpp=.o))
 OBJ_SERVER		=	$(addprefix ./$(OBJ_SERVER_REP)/, $(SRC_SERVER:.cpp=.o))
 
 CXX				=	g++
-FLAGS			=	-Wall -Werror -Wextra
+FLAGS			=	-Wall -Werror -Wextra -std=c++20
+RDLINE_FLAGS	=	-lreadline 
 HDR_FLAGS_D		=	-I daemon/
 HDR_FLAGS_C		=	-I client/
 
@@ -45,18 +46,23 @@ print_header:
 	@echo "$(RST)"
 .PHONY: print_header
 
+ifeq (server,$(firstword $(MAKECMDGOALS)))
+  RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(RUN_ARGS):;@:)
+endif
+
 ./obj_client/%.o: ./$(NAME_CLIENT)/%.cpp $(HDR_CLIENT)
-	mkdir -p $(OBJ_CLIENT_REP)
+	mkdir -p $(OBJ_CLIENT_REP) $(OBJ_CLIENT_REP)/utils
 	$(CXX) $(FLAGS) $(HDR_FLAGS_C) -c $< -o $@
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
 
 ./obj_daemon/%.o: ./$(NAME_SERVER)/%.cpp $(HDR_SERVER)
-	mkdir -p $(OBJ_SERVER_REP)
+	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/utils
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) -c $< -o $@
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
 
 $(NAME): $(OBJ_CLIENT) $(OBJ_SERVER)
-	$(CXX) $(FLAGS) $(HDR_FLAGS_C) $(OBJ_CLIENT) -o $(NAME_CLIENT).out
+	$(CXX) $(FLAGS) $(HDR_FLAGS_C) $(OBJ_CLIENT) $(RDLINE_FLAGS) -o $(NAME_CLIENT).out
 	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_CLIENT).out $(BGREEN)\033[47G[✔]$(RST)"
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) $(OBJ_SERVER) -o $(NAME_SERVER).out
 	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_SERVER).out $(BGREEN)\033[47G[✔]$(RST)"
@@ -82,7 +88,7 @@ server:
 		exit 1; \
 	fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[47G[✔]$(RST)"
-	@./$(NAME_SERVER).out
+	@./$(NAME_SERVER).out $(RUN_ARGS)
 .PHONY: server
 
 kill:
@@ -93,6 +99,7 @@ kill:
 		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[47G[✔]$(RST)"; \
 		kill $$PID; \
 	fi
+.PHONY: kill
 
 clean:
 	$(RM) $(OBJ_CLIENT) $(OBJ_SERVER)
