@@ -17,15 +17,34 @@ volatile sig_atomic_t child_exited = 0;
 
 std::vector<char *> parse_command(const std::string &cmd) {
     std::vector<std::string> args;
-    std::istringstream       iss(cmd);
-    std::string              arg;
     std::vector<char *>      av;
+    std::istringstream       iss(cmd);
+    std::string              token;
+    std::string              current_arg;
 
-    while (iss >> arg) {
-        args.push_back(arg);
+    while (iss >> std::ws) {
+        char c = iss.peek();
+
+        if (c == '"' || c == '\'') {
+            char quote = iss.get();
+            current_arg.clear();
+
+            while (iss.get(c)) {
+                if (c == quote) break;
+                current_arg += c;
+            }
+
+            args.push_back(current_arg);
+        } else {
+            iss >> token;
+            args.push_back(token);
+        }
     }
 
-    for (auto &s : args) av.push_back(s.data());
+    for (auto &s : args) {
+        av.push_back(const_cast<char *>(s.c_str()));
+        std::cout << s.c_str();
+    }
     av.push_back(nullptr);
 
     return av;
@@ -46,10 +65,20 @@ void redirect_output(const std::string &name, const std::string &stdout_file,
     close(stderr_fd);
 }
 
-void set_environment(const std::map<std::string, std::string> &env) {
+std::vector<char *> set_environment(const std::map<std::string, std::string> &env) {
+    std::vector<std::string> env_strings;
+    std::vector<char *>      envp;
+
     for (const auto &[key, value] : env) {
-        setenv(key.c_str(), value.c_str(), 1);
+        env_strings.push_back(key + "=" + value);
     }
+
+    for (auto &s : env_strings) {
+        envp.push_back(s.data());
+    }
+    envp.push_back(nullptr);
+
+    return envp;
 }
 
 void sigchld_handler(int sig) {
@@ -67,7 +96,8 @@ void setup_signal_handlers() {
 }
 
 pid_t launch_program(const std::string &name, const ProgramConfig &config) {
-    pid_t pid;
+    pid_t               pid;
+    std::vector<char *> envp;
 
     pid = fork();
     if (pid < 0) {
@@ -79,24 +109,25 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
             std::cerr << "Failed to change directory to " << config.getWorkingDir() << std::endl;
-            exit(1);
+            _exit(1);
         }
 
         redirect_output(name, config.getStdoutFile(), config.getStderrFile());
-        set_environment(config.getEnv());
+        envp = set_environment(config.getEnv());
 
         std::vector<char *> av = parse_command(config.getCmd());
+        std::cout << "Av 0 1: " << av[0] << av[1] << std::endl;
 
         if (av.empty()) {
             std::cerr << "Empty command for: " << name << std::endl;
-            exit(1);
+            _exit(1);
         }
 
         std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
-        execvp(av[0], av.data());
+        execvpe(av[0], av.data(), envp.data());
 
         std::cerr << "Execution failed for: " << config.getCmd() << std::endl;
-        exit(1);
+        _exit(1);
     }
 
     return pid;
