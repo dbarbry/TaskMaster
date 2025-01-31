@@ -10,6 +10,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <csignal>
 #include <vector>
 
 volatile sig_atomic_t child_exited = 0;
