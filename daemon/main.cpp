@@ -81,7 +81,8 @@ void handle_client(int client_fd, int server_fd) {
             std::cout << "Client disconnected" << std::endl;
             break;
         }
-        std::cout << "Received: " << buffer;
+        std::cout << "[DEBUG] Received: " << buffer;
+        std::map<std::string, std::vector<std::string>> parsedCommand = commandParsing(buffer);
         std::string clean_buffer(buffer);
 
         std::string response = handle_cmd(clean_buffer, server_fd);
