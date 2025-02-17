@@ -46,6 +46,10 @@ print_header:
 	@echo "$(RST)"
 .PHONY: print_header
 
+prerequisities:
+	sudo apt-get install libreadline-dev
+.PHONY: prerequisities
+
 ifeq (server,$(firstword $(MAKECMDGOALS)))
   RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(RUN_ARGS):;@:)
@@ -71,24 +75,24 @@ $(NAME): $(OBJ_CLIENT) $(OBJ_SERVER)
 client:
 	@if [ ! -f "./$(NAME_CLIENT).out" ]; then \
 		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[47G[✘]$(RST)"; \
-		exit 1; \
+		exit 0; \
 	fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_CLIENT).out...$(BGREEN)\033[47G[✔]$(RST)"
-	@./$(NAME_CLIENT).out
+	@./$(NAME_CLIENT).out || true
 .PHONY: client
 
 server:
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
 	if [ "$$PID" ]; then \
 		echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[47G[✘]$(RST)"; \
-		exit 1; \
+		exit 0; \
 	fi; \
 	if [ ! -f "./$(NAME_SERVER).out" ]; then \
 		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[47G[✘]$(RST)"; \
-		exit 1; \
+		exit 0; \
 	fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[47G[✔]$(RST)"
-	@./$(NAME_SERVER).out $(RUN_ARGS)
+	@./$(NAME_SERVER).out $(RUN_ARGS) || true
 .PHONY: server
 
 kill:
