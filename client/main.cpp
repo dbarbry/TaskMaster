@@ -45,6 +45,18 @@ class Shell {
         return oss.str();
     }
 
+    std::vector<std::string> cmd_to_words(const std::string &cmd) {
+        std::istringstream       iss(cmd);
+        std::vector<std::string> words;
+        std::string              word;
+
+        while (iss >> word) {
+            words.push_back(word);
+        }
+
+        return words;
+    }
+
     bool send_cmd(int fd, const std::string &cmd) {
         char        buffer[BUFFER_SIZE] = {0};
         std::string message             = cmd + "\n";
@@ -68,46 +80,78 @@ class Shell {
         return true;
     }
 
-    int attach_pty(void) {
-        int   master_fd = open_pty();
-        int   slave_fd;
-        pid_t pid;
-
-        if (master_fd == -1) return -1;
-        slave_fd = open_slave(master_fd);
-        if (slave_fd == -1) {
-            close(master_fd);
-            return 1;
+    int attach_pty(int fd, const std::string &service_name) {
+        std::string message = "attach " + service_name + "\n";
+        if (write(fd, message.c_str(), message.size()) <= 0) {
+            perror("write failed");
+            return -1;
         }
 
-        pid = fork();
-        if (pid < 0) {
-            perror("fork failed");
-            return 1;
-        }
-        if (pid == 0) {
-            attach_terminal(slave_fd);
+        struct msghdr   msg;
+        struct iovec    iov;
+        char            buf[1];
+        struct cmsghdr *cmsg;
+        char            control[CMSG_SPACE(sizeof(int))];
 
-            while (true) {
-                std::cout << "Hey there" << std::endl;
-                sleep(2);
+        iov.iov_base       = buf;
+        iov.iov_len        = sizeof(buf);
+        msg.msg_iov        = &iov;
+        msg.msg_iovlen     = 1;
+        msg.msg_control    = control;
+        msg.msg_controllen = sizeof(control);
+
+        if (recvmsg(fd, &msg, 0) <= 0) {
+            perror("recvmsg failed");
+            return -1;
+        }
+
+        cmsg = CMSG_FIRSTHDR(&msg);
+        if (cmsg == nullptr || cmsg->cmsg_type != SCM_RIGHTS) {
+            std::cerr << "Error: Invalid PTY descriptor received.\n";
+            return -1;
+        }
+
+        int pty_fd = *((int *)CMSG_DATA(cmsg));
+        std::cout << "Attached to " << service_name << std::endl;
+
+        struct termios old_tio, new_tio;
+        tcgetattr(STDIN_FILENO, &old_tio);
+        new_tio = old_tio;
+        new_tio.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
+
+        char buffer[1024];
+        while (true) {
+            fd_set fds;
+            FD_ZERO(&fds);
+            FD_SET(STDIN_FILENO, &fds);
+            FD_SET(pty_fd, &fds);
+
+            select(pty_fd + 1, &fds, nullptr, nullptr, nullptr);
+
+            if (FD_ISSET(STDIN_FILENO, &fds)) {
+                ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer));
+                if (n <= 0) break;
+                write(pty_fd, buffer, n);
             }
-        } else {
-            while (true) {
-                read_from_pty(master_fd);
+            if (FD_ISSET(pty_fd, &fds)) {
+                ssize_t n = read(pty_fd, buffer, sizeof(buffer));
+                if (n <= 0) break;
+                write(STDOUT_FILENO, buffer, n);
             }
         }
 
-        close(master_fd);
-        close(slave_fd);
-
+        tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
+        close(pty_fd);
         return 0;
     }
 
     bool analyze_cmd(int fd, const std::string &cmd) {
-        std::string cleaned_cmd = parse_cmd(cmd);
+        std::string              cleaned_cmd = parse_cmd(cmd);
+        std::vector<std::string> words       = cmd_to_words(cleaned_cmd);
 
-        if (cleaned_cmd.empty()) return true;
+        if (words.empty()) return true;
+        const std::string &command = words[0];
 
         if (cmd == "help") {
             std::cout << "Server commands:" << std::endl;
@@ -124,8 +168,12 @@ class Shell {
         } else if (cmd == "exit") {
             std::cout << "Leaving..." << std::endl;
             return false;
-        } else if (cmd == "attach") {
-            if (attach_pty()) std::cout << "Attach failed" << std::endl;
+        } else if (command == "attach") {
+            if (words.size() < 2) {
+                std::cout << "Usage: attach <service>" << std::endl;
+                return true;
+            }
+            if (attach_pty(fd, words[1]) != 0) std::cout << "Attach failed" << std::endl;
             return true;
         }
 

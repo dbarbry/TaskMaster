@@ -84,7 +84,7 @@ void handle_client(int client_fd, int server_fd) {
         std::cout << "Received: " << buffer;
         std::string clean_buffer(buffer);
 
-        std::string response = handle_cmd(clean_buffer, server_fd);
+        std::string response = handle_cmd(clean_buffer, server_fd, client_fd);
         if (write(client_fd, response.c_str(), response.size()) <= 0) {
             perror("write failed");
             break;

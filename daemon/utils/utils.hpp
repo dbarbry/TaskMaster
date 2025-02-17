@@ -3,6 +3,6 @@
 
 #include <iostream>
 
-std::string handle_cmd(std::string cmd, int server_fd);
+std::string handle_cmd(std::string cmd, int server_fd, int client_fd);
 
 #endif

@@ -1,8 +1,14 @@
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <vector>
+
+extern std::map<std::string, int> active_programs;
 
 std::string status(std::vector<std::string> words) {
     words.clear();
@@ -35,7 +41,51 @@ std::string shutdown(std::vector<std::string> words, int server_fd) {
     return "Shutting down daemon...";
 }
 
-std::string handle_cmd(std::string cmd, int server_fd) {
+std::string attach(std::vector<std::string> words, int client_fd) {
+    struct msghdr   msg;
+    struct iovec    iov;
+    char            buf[1];
+    struct cmsghdr *cmsg;
+    char            control[CMSG_SPACE(sizeof(int))];
+    int             master_fd;
+
+    if (words.size() < 2) {
+        return "Usage: attach <service_name>\n";
+    }
+
+    std::string program_name = words[1];
+
+    if (active_programs.find(program_name) == active_programs.end()) {
+        return "Error: Program '" + program_name + "' not found or not running.\n";
+    }
+
+    master_fd = active_programs[program_name];
+    if (master_fd < 0) {
+        return "Error: Invalid PTY file descriptor.\n";
+    }
+
+    iov.iov_base       = buf;
+    iov.iov_len        = sizeof(buf);
+    msg.msg_iov        = &iov;
+    msg.msg_iovlen     = 1;
+    msg.msg_control    = control;
+    msg.msg_controllen = sizeof(control);
+
+    cmsg             = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type  = SCM_RIGHTS;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(int));
+
+    *((int *)CMSG_DATA(cmsg)) = master_fd;
+
+    if (sendmsg(client_fd, &msg, 0) == -1) {
+        return "Error: Failed to send PTY descriptor.\n";
+    }
+
+    return "Attached successfully.\n";
+}
+
+std::string handle_cmd(std::string cmd, int server_fd, int client_fd) {
     std::istringstream       iss(cmd);
     std::vector<std::string> words;
     std::string              word;
@@ -61,6 +111,8 @@ std::string handle_cmd(std::string cmd, int server_fd) {
         response << reload(words);
     else if (command == "shutdown")
         response << shutdown(words, server_fd);
+    else if (command == "attach")
+        response << attach(words, client_fd);
     else
         response << "Command " + command + " not found." << std::endl << "Type 'help' for help.";
     response << std::endl;

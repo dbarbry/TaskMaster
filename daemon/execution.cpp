@@ -1,6 +1,9 @@
 #include "./incs/execution.hpp"
 
 #include <fcntl.h>
+#include <pty.h>
+#include <signal.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -13,12 +16,23 @@
 #include <memory>
 #include <sstream>
 #include <vector>
-#include <signal.h>
-#include <unistd.h>
 
+std::map<std::string, int> active_programs;
+volatile sig_atomic_t      child_exited = 0;
 
+void sigchld_handler(int sig) {
+    (void)sig;
+    child_exited = 1;
+}
 
-volatile sig_atomic_t child_exited = 0;
+void setup_signal_handlers() {
+    struct sigaction sa;
+
+    sa.sa_handler = sigchld_handler;
+    sa.sa_flags   = SA_RESTART | SA_NOCLDSTOP;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGCHLD, &sa, nullptr);
+}
 
 int execvpe_compat(const char *file, char *const argv[], char *const envp[]) {
     if (strchr(file, '/')) {
@@ -30,7 +44,7 @@ int execvpe_compat(const char *file, char *const argv[], char *const envp[]) {
     if (!path) path = "/usr/bin:/bin:/usr/sbin:/sbin";
 
     std::istringstream pathStream(path);
-    std::string dir;
+    std::string        dir;
     while (std::getline(pathStream, dir, ':')) {
         std::string fullPath = dir + "/" + file;
         execve(fullPath.c_str(), argv, envp);
@@ -74,24 +88,6 @@ void parse_command(const std::string &cmd, std::vector<std::unique_ptr<char[]>> 
     av.push_back(nullptr);
 }
 
-void redirect_output(const std::string &name, const std::string &stdout_file,
-                     const std::string &stderr_file) {
-    int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-    int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-
-    if (stdout_fd < 0) std::cerr << name << " stdout logging file failed to open.";
-    if (stderr_fd < 0) std::cerr << name << " stderr logging file failed to open.";
-
-    if (stdout_fd >= 0 && dup2(stdout_fd, STDOUT_FILENO) < 0) {
-        std::cerr << "dup2 failed for stdout: " << strerror(errno) << std::endl;
-    }
-    if (stderr_fd >= 0 && dup2(stderr_fd, STDERR_FILENO) < 0) {
-        std::cerr << "dup2 failed for stderr: " << strerror(errno) << std::endl;
-    }
-    close(stdout_fd);
-    close(stderr_fd);
-}
-
 void set_environment(const std::map<std::string, std::string> &env,
                      std::vector<std::unique_ptr<char[]>> &storage, std::vector<char *> &envp) {
     storage.clear();
@@ -106,26 +102,37 @@ void set_environment(const std::map<std::string, std::string> &env,
     envp.push_back(nullptr);
 }
 
-void sigchld_handler(int sig) {
-    (void)sig;
-    child_exited = 1;
-}
+void redirect_output(int pty_fd, const std::string &stdout_file, const std::string &stderr_file) {
+    int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
-void setup_signal_handlers() {
-    struct sigaction sa;
+    if (stdout_fd < 0) std::cerr << "stdout logging file failed to open." << std::endl;
+    if (stderr_fd < 0) std::cerr << "stderr logging file failed to open." << std::endl;
 
-    sa.sa_handler = sigchld_handler;
-    sa.sa_flags   = SA_RESTART | SA_NOCLDSTOP;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGCHLD, &sa, nullptr);
+    if (stdout_fd >= 0) {
+        dup2(stdout_fd, STDOUT_FILENO);
+        if (pty_fd >= 0) dup2(pty_fd, STDOUT_FILENO);
+    }
+
+    if (stderr_fd >= 0) {
+        dup2(stderr_fd, STDERR_FILENO);
+        if (pty_fd >= 0) dup2(pty_fd, STDERR_FILENO);
+    }
+
+    close(stdout_fd);
+    close(stderr_fd);
 }
 
 pid_t launch_program(const std::string &name, const ProgramConfig &config) {
+    std::vector<std::unique_ptr<char[]>> storage, env_storage;
+    std::vector<char *>                  av, envp;
     pid_t                                pid;
-    std::vector<std::unique_ptr<char[]>> storage;
-    std::vector<std::unique_ptr<char[]>> env_storage;
-    std::vector<char *>                  av;
-    std::vector<char *>                  envp;
+    int                                  master_fd, slave_fd;
+
+    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {
+        std::cerr << "Failed to create PTY for: " << name << std::endl;
+        return -1;
+    }
 
     pid = fork();
     if (pid < 0) {
@@ -135,21 +142,25 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
     if (pid == 0) {
         std::cout << "Launching: " << name << " (" << config.getCmd() << ")" << std::endl;
 
+        close(master_fd);
+        setsid();
+        ioctl(slave_fd, TIOCSCTTY, 0);
+
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
             std::cerr << "Failed to change directory to " << config.getWorkingDir() << std::endl;
             _exit(1);
         }
 
-        redirect_output(name, config.getStdoutFile(), config.getStderrFile());
+        redirect_output(slave_fd, config.getStdoutFile(), config.getStderrFile());
+        close(slave_fd);
 
         set_environment(config.getEnv(), env_storage, envp);
-
         parse_command(config.getCmd(), storage, av);
+
         if (av.empty()) {
             std::cerr << "Empty command for: " << name << std::endl;
             _exit(1);
         }
-        
 
         std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
         execvpe_compat(av[0], av.data(), envp.data());
@@ -159,6 +170,8 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
                   << ")\n";
         _exit(1);
     }
+    close(slave_fd);
+    active_programs[name] = master_fd;
 
     return pid;
 }
