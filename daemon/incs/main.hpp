@@ -18,5 +18,6 @@
 #include "utils/utils.hpp"
 #include "incs/parsing.hpp"
 #include "incs/execution.hpp"
+#include "incs/command_parsing.hpp"
 
 #endif
