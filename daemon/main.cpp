@@ -1,6 +1,7 @@
 #include "./incs/main.hpp"
 
 #include <filesystem>
+#include <thread>
 
 #include "./incs/parsing.hpp"
 #define LOG_PATH "/home/dhaya/taskmaster/log"
@@ -112,22 +113,18 @@ void run_server(void) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
+    chmod(SOCKET_PATH, 0777);
 
     if (listen(server_fd, 5) < 0) {
         perror("listen failed");
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "Server is running as a daemon and listening on " << SOCKET_PATH << std::endl;
-
     while (true) {
         if ((client_fd = accept(server_fd, 0, 0)) < 0) {
             perror("accept failed");
             continue;
         }
-
-        std::cout << "New client connected" << std::endl;
-
         handle_client(client_fd, server_fd);
     }
 
@@ -164,10 +161,12 @@ int main(int ac, char **av) {
     std::cout << ".conf : " << av[1] << std::endl;
     std::map<std::string, ProgramConfig> programs = parsing(av[1]);
     log_config(programs);
-    exec_programs(programs);
+    std::thread program_thread(exec_programs, programs);
 
     // daemonize();
     run_server();
+
+    program_thread.join();
 
     return 0;
 }
