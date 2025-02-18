@@ -171,6 +171,8 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         _exit(1);
     }
     close(slave_fd);
+    std::cout << "[SERVER] Storing PTY FD for: " << name << " (FD: " << master_fd << ")"
+              << std::endl;
     active_programs[name] = master_fd;
 
     return pid;

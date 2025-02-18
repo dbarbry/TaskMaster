@@ -81,17 +81,20 @@ class Shell {
     }
 
     int attach_pty(int fd, const std::string &service_name) {
-        std::string message = "attach " + service_name + "\n";
+        std::string     message = "attach " + service_name + "\n";
+        struct msghdr   msg;
+        struct iovec    iov;
+        char            buf[1] = {0};
+        struct cmsghdr *cmsg;
+        char            control[CMSG_SPACE(sizeof(int))];
+
         if (write(fd, message.c_str(), message.size()) <= 0) {
             perror("write failed");
             return -1;
         }
+        memset(&msg, 0, sizeof(msg));
 
-        struct msghdr   msg;
-        struct iovec    iov;
-        char            buf[1];
-        struct cmsghdr *cmsg;
-        char            control[CMSG_SPACE(sizeof(int))];
+        std::cout << "[CLIENT] Requesting PTY for service: " << service_name << std::endl;
 
         iov.iov_base       = buf;
         iov.iov_len        = sizeof(buf);
@@ -106,7 +109,7 @@ class Shell {
         }
 
         cmsg = CMSG_FIRSTHDR(&msg);
-        if (cmsg == nullptr || cmsg->cmsg_type != SCM_RIGHTS) {
+        if (!cmsg || cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
             std::cerr << "Error: Invalid PTY descriptor received.\n";
             return -1;
         }
@@ -117,7 +120,8 @@ class Shell {
         struct termios old_tio, new_tio;
         tcgetattr(STDIN_FILENO, &old_tio);
         new_tio = old_tio;
-        new_tio.c_lflag &= ~(ICANON | ECHO);
+        new_tio.c_lflag |= ICANON | ECHO;
+        // &= ~(ICANON | ECHO) to process raw buffer (1 char = 1 buffer)
         tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
 
         char buffer[1024];
@@ -131,13 +135,24 @@ class Shell {
 
             if (FD_ISSET(STDIN_FILENO, &fds)) {
                 ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer));
+
                 if (n <= 0) break;
-                write(pty_fd, buffer, n);
+                if (buffer[0] == 0x1C) {  // 0x1C = Ctrl + backslash
+                    std::cout << "\n[CLIENT] Detaching from " << service_name << "...\n";
+                    break;
+                }
+                if (write(pty_fd, buffer, n) <= 0) {
+                    perror("[CLIENT] write to PTY failed");
+                    break;
+                }
             }
             if (FD_ISSET(pty_fd, &fds)) {
                 ssize_t n = read(pty_fd, buffer, sizeof(buffer));
                 if (n <= 0) break;
-                write(STDOUT_FILENO, buffer, n);
+                if (write(STDOUT_FILENO, buffer, n) <= 0) {
+                    perror("[CLIENT] write to stdout failed");
+                    break;
+                }
             }
         }
 

@@ -44,15 +44,15 @@ std::string shutdown(std::vector<std::string> words, int server_fd) {
 std::string attach(std::vector<std::string> words, int client_fd) {
     struct msghdr   msg;
     struct iovec    iov;
-    char            buf[1];
+    char            buf[1] = {0};
     struct cmsghdr *cmsg;
     char            control[CMSG_SPACE(sizeof(int))];
     int             master_fd;
 
-    if (words.size() < 2) {
-        return "Usage: attach <service_name>\n";
-    }
+    if (words.size() < 2) return "Usage: attach <service_name>\n";
 
+    memset(&msg, 0, sizeof(msg));
+    memset(control, 0, sizeof(control));
     std::string program_name = words[1];
 
     if (active_programs.find(program_name) == active_programs.end()) {
@@ -60,6 +60,8 @@ std::string attach(std::vector<std::string> words, int client_fd) {
     }
 
     master_fd = active_programs[program_name];
+    std::cout << "[SERVER] Attaching to service: " << program_name << " (PTY FD: " << master_fd
+              << ")" << std::endl;
     if (master_fd < 0) {
         return "Error: Invalid PTY file descriptor.\n";
     }
@@ -71,16 +73,16 @@ std::string attach(std::vector<std::string> words, int client_fd) {
     msg.msg_control    = control;
     msg.msg_controllen = sizeof(control);
 
-    cmsg             = CMSG_FIRSTHDR(&msg);
+    cmsg = CMSG_FIRSTHDR(&msg);
+    if (!cmsg) return "Error: Failed to allocate message header.\n";
+
     cmsg->cmsg_level = SOL_SOCKET;
     cmsg->cmsg_type  = SCM_RIGHTS;
     cmsg->cmsg_len   = CMSG_LEN(sizeof(int));
 
     *((int *)CMSG_DATA(cmsg)) = master_fd;
 
-    if (sendmsg(client_fd, &msg, 0) == -1) {
-        return "Error: Failed to send PTY descriptor.\n";
-    }
+    if (sendmsg(client_fd, &msg, 0) == -1) return "Error: Failed to send PTY descriptor.\n";
 
     return "Attached successfully.\n";
 }
