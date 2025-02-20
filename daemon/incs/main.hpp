@@ -19,5 +19,6 @@
 #include "incs/parsing.hpp"
 #include "incs/execution.hpp"
 #include "incs/command_parsing.hpp"
+#include "incs/start_command.hpp"
 
 #endif
