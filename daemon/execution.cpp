@@ -1,6 +1,7 @@
 #include "./incs/execution.hpp"
 
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -13,10 +14,6 @@
 #include <memory>
 #include <sstream>
 #include <vector>
-#include <signal.h>
-#include <unistd.h>
-
-
 
 volatile sig_atomic_t child_exited = 0;
 
@@ -149,10 +146,11 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
             std::cerr << "Empty command for: " << name << std::endl;
             _exit(1);
         }
-        
+
 
         std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
         execvpe_compat(av[0], av.data(), envp.data());
+        std ::cout << "[PID " << getpid() << "] Executing: " << av[0] << av.data()  << std::endl;
 
         int err = errno;
         std::cerr << "Execution failed for: " << config.getCmd() << " (Error: " << strerror(err)
@@ -163,34 +161,29 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
     return pid;
 }
 
-void monitoring(std::vector<pid_t> &pids) {
-    while (!pids.empty()) {
-        if (child_exited) {
-            child_exited = 0;
-
-            int   status;
-            pid_t pid;
-            while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
+    while (!pids->empty()) {
+        int status;
+        pid_t pid;
+        for (auto it = pids->begin(); it != pids->end();) {
+            pid = waitpid(*it, &status, WNOHANG);
+            if (pid > 0) {
                 if (WIFEXITED(status)) {
-                    std::cout << "[PID " << pid << "] exited with code: " << WEXITSTATUS(status)
-                              << std::endl;
+                    std::cout << "[PID " << pid << "] exited with code: " << WEXITSTATUS(status) << std::endl;
                 } else if (WIFSIGNALED(status)) {
-                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status)
-                              << std::endl;
+                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status) << std::endl;
                 }
-
-                auto it = std::find(pids.begin(), pids.end(), pid);
-                if (it != pids.end()) {
-                    pids.erase(it);
-                }
+                it = pids->erase(it);
+            } else {
+                ++it;
             }
         }
-        pause();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }
 
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
-    std::vector<pid_t> pids;
+    auto pids = std::make_shared<std::vector<pid_t>>();
 
     setup_signal_handlers();
     for (const auto &[name, config] : programs) {
@@ -198,45 +191,19 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
         int       nbr_instances = config.getNumprocs();
 
         for (int i = 0; i < nbr_instances; i++) {
-            int   retries = 0;
+            int retries = 0;
             pid_t pid;
-            int   status;
-
             while (retries < max_retries) {
                 pid = launch_program(name, config);
                 if (pid < 0) break;
-                waitpid(pid, &status, 0);
-
-                if (WIFEXITED(status)) {
-                    int exit_code = WEXITSTATUS(status);
-                    std::cout << "[PID " << pid << "] ended with code: " << exit_code << std::endl;
-
-                    const std::vector<int> &valid_exit_codes = config.getExitcodes();
-                    if (std::find(valid_exit_codes.begin(), valid_exit_codes.end(), exit_code) !=
-                        valid_exit_codes.end()) {
-                        std::cout << "[PID " << pid << "] Exit code is allowed, no restart needed."
-                                  << std::endl;
-                        break;
-                    }
-
-                    std::cout << "[PID " << pid << "] Unexpected exit code, restarting..."
-                              << std::endl;
-                } else if (WIFSIGNALED(status)) {
-                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status)
-                              << std::endl;
-                }
-
-                retries++;
-                if (retries < max_retries) {
-                    std::cerr << "Restarting " << name << " (" << retries << "/" << max_retries
-                              << ")" << std::endl;
-                } else {
-                    std::cerr << "Max retries reached for " << name << ", giving up." << std::endl;
-                }
+                break;
             }
-            pids.push_back(pid);
+            pids->push_back(pid);
         }
     }
 
-    monitoring(pids);
+    std::thread monitor_thread(monitoring, pids);
+    monitor_thread.detach();
 }
+
+
