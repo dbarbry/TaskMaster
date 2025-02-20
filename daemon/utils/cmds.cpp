@@ -59,7 +59,6 @@ std::string handle_cmd(std::string cmd, int server_fd,
         response << start(words);
         startCommand(parsedCommand, programs);
     }
-
     else if (command == "stop")
         response << stop(words);
     else if (command == "restart")
