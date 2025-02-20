@@ -4,6 +4,8 @@
 #include <sstream>
 #include <vector>
 
+#include "../incs/start_command.hpp"
+
 std::string status(std::vector<std::string> words) {
     words.clear();
     return "status command";
@@ -35,7 +37,9 @@ std::string shutdown(std::vector<std::string> words, int server_fd) {
     return "Shutting down daemon...";
 }
 
-std::string handle_cmd(std::string cmd, int server_fd) {
+std::string handle_cmd(std::string cmd, int server_fd,
+                       std::map<std::string, std::vector<std::string>> parsedCommand,
+                       std::map<std::string, ProgramConfig>            programs) {
     std::istringstream       iss(cmd);
     std::vector<std::string> words;
     std::string              word;
@@ -51,8 +55,11 @@ std::string handle_cmd(std::string cmd, int server_fd) {
     const std::string &command = words[0];
     if (command == "status")
         response << status(words);
-    else if (command == "start")
+    else if (command == "start") {
         response << start(words);
+        startCommand(parsedCommand, programs);
+    }
+
     else if (command == "stop")
         response << stop(words);
     else if (command == "restart")

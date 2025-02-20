@@ -84,16 +84,7 @@ void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramCo
         std::cout << "[DEBUG] Received: " << buffer;
         std::map<std::string, std::vector<std::string>> parsedCommand = commandParsing(buffer);
         std::string clean_buffer(buffer);
-        std::string response = handle_cmd(clean_buffer, server_fd);
-        if (parsedCommand.empty()) {
-            std::cout << "Invalid command" << std::endl;
-            continue;
-        }
-        else if (parsedCommand.count("command") && parsedCommand["command"][0] == "start") {
-            write(client_fd, response.c_str(), response.size());
-            std::cout << "start" << std::endl;
-            startCommand(parsedCommand, programs);
-        }
+        std::string response = handle_cmd(clean_buffer, server_fd, parsedCommand, programs);
 
         if (write(client_fd, response.c_str(), response.size()) <= 0) {
             perror("write failed");
