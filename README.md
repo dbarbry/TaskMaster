@@ -12,3 +12,16 @@ make kill                   - kill the daemonized server.
 make fclean                 - to clean everything
 make clean_log              - to clean logs
 ```
+
+In order to use clang-format file:
+
+Install C/C++ extension
+Then in your JSON settings of vscode:
+
+```
+{
+    "C_Cpp.formatting": "clangFormat",
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+}
+```

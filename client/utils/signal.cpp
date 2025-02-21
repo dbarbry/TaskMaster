@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include <atomic>
 #include <csignal>
 #include <iostream>
 
@@ -10,10 +11,10 @@ void signal_handler(int signum) {
             break;
         case SIGTERM:
             std::cout << "Leaving..." << std::endl;
-            break;
+            exit(0);
         case SIGQUIT:
             std::cout << "Leaving..." << std::endl;
-            break;
+            return;
         default:
             std::cout << "Stop trying to break this shell" << std::endl;
             break;
@@ -25,6 +26,7 @@ void setup_signal_handlers(void) {
 
     sa.sa_handler = signal_handler;
     sa.sa_flags   = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
 
     sigaction(SIGTSTP, &sa, 0);
     sigaction(SIGTERM, &sa, 0);
