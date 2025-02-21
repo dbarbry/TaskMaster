@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "../incs/start_command.hpp"
+#include "../incs/stop_command.hpp"
 
 extern std::map<std::string, int> active_programs;
 
@@ -116,7 +117,10 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd, std::map<s
         startCommand(parsedCommand, programs);
     }
     else if (command == "stop")
+    {
         response << stop(words);
+        closeCommand(parsedCommand, programs);
+    }
     else if (command == "restart")
         response << restart(words);
     else if (command == "reload")
