@@ -1,9 +1,5 @@
-#include "./incs/main.hpp"
+#include "main.hpp"
 
-#include <filesystem>
-#include <thread>
-
-#include "./incs/parsing.hpp"
 #define LOG_PATH "/home/dhaya/taskmaster/log"
 #define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024

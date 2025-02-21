@@ -1,9 +1,4 @@
-#include "../incs/command_parsing.hpp"
-
-#include <iostream>
-#include <map>
-#include <sstream>
-#include <vector>
+#include "cmds.hpp"
 
 std::map<std::string, std::vector<std::string>> commandParsing(std::string cmd) {
     std::istringstream                              iss(cmd);

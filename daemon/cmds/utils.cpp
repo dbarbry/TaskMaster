@@ -1,4 +1,4 @@
-#include "utils.hpp"
+#include "cmds.hpp"
 
 bool isAlreadyRunning(const std::string &programPath) {
     std::string programName = basename(const_cast<char *>(programPath.c_str()));

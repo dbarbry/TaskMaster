@@ -1,10 +1,4 @@
-#include "./incs/parsing.hpp"
-
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <vector>
+#include "launch.hpp"
 
 std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
     std::map<std::string, ProgramConfig> programs;

@@ -1,7 +1,7 @@
-#include "incs/stop_command.hpp"
+#include "../cmds.hpp"
 
-void closeCommand(const std::map<std::string, std::vector<std::string>> &cmd,
-                  const std::map<std::string, ProgramConfig>            &programs) {
+void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
+                 const std::map<std::string, ProgramConfig>            &programs) {
     std::cout << "Closing command logic" << std::endl;
 
     if (!cmd.count("command") || cmd.at("command").empty() || cmd.at("command")[0] != "stop") {

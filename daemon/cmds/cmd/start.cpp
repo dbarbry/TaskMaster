@@ -1,12 +1,4 @@
-#include "incs/start_command.hpp"
-
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
-
-#include "incs/execution.hpp"
-
+#include "../cmds.hpp"
 
 void startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                   const std::map<std::string, ProgramConfig>            &programs) {

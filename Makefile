@@ -61,7 +61,9 @@ endif
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[56G[✔]$(RST)"
 
 ./obj_daemon/%.o: ./$(NAME_SERVER)/%.cpp $(HDR_SERVER)
-	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/utils
+	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/cmds
+	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/cmds/cmd
+	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/launch
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) -c $< -o $@
 	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[56G[✔]$(RST)"
 

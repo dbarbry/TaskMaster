@@ -1,11 +1,25 @@
-#ifndef PARSING_HPP
-#define PARSING_HPP
+#ifndef LAUNCH_HPP
+#define LAUNCH_HPP
 
+#include <fcntl.h>
+#include <pty.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <csignal>
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 class ProgramConfig {
@@ -143,7 +157,8 @@ class ProgramConfig {
     }
 };
 
-std::map<std::string, ProgramConfig> parsing(std::string filename);
+void exec_programs(const std::map<std::string, ProgramConfig>& programs);
 void log_config(const std::map<std::string, ProgramConfig>& programs);
+std::map<std::string, ProgramConfig> parsing(std::string filename);
 
 #endif

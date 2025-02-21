@@ -1,21 +1,4 @@
-#include "./incs/execution.hpp"
-
-#include <fcntl.h>
-#include <pty.h>
-#include <signal.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-#include <algorithm>
-#include <csignal>
-#include <cstring>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <sstream>
-#include <vector>
+#include "launch.hpp"
 
 std::map<std::string, int> active_programs;
 volatile sig_atomic_t      child_exited = 0;
