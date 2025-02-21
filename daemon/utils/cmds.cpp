@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../incs/start_command.hpp"
+#include "../incs/stop_command.hpp"
 
 std::string status(std::vector<std::string> words) {
     words.clear();
@@ -60,7 +61,10 @@ std::string handle_cmd(std::string cmd, int server_fd,
         startCommand(parsedCommand, programs);
     }
     else if (command == "stop")
+    {
         response << stop(words);
+        closeCommand(parsedCommand, programs);
+    }
     else if (command == "restart")
         response << restart(words);
     else if (command == "reload")
