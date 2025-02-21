@@ -1,3 +1,5 @@
+#include <pty.h>
+
 #include "launch.hpp"
 
 std::map<std::string, int> active_programs;

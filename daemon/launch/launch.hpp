@@ -2,9 +2,9 @@
 #define LAUNCH_HPP
 
 #ifdef __APPLE__
-    #include <util.h>
+#include <util.h>
 #elif defined(linux)
-    #include <pty.h>
+#include <pty.h>
 #endif
 
 #include <fcntl.h>

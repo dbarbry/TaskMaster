@@ -1,8 +1,4 @@
-#include <unistd.h>
-
-#include <atomic>
-#include <csignal>
-#include <iostream>
+#include "utils.hpp"
 
 void signal_handler(int signum) {
     switch (signum) {
