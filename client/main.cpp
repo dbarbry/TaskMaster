@@ -15,7 +15,7 @@ void run_server(int fd) {
     strncpy(address.sun_path, SOCKET_PATH, sizeof(address.sun_path) - 1);
 
     if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("connect failed");
+        std::cerr << "No TaskMaster server found." << std::endl;
         exit(1);
     }
 }

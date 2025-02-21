@@ -1,7 +1,7 @@
 #ifndef MAIN_HPP
 #define MAIN_HPP
 
-#ifdef OS_MACOS
+#ifdef __APPLE__
 #include <util.h>
 #elif defined(__linux__)
 #include <pty.h>
