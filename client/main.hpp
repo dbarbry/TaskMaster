@@ -1,10 +1,10 @@
 #ifndef MAIN_HPP
 #define MAIN_HPP
 
-#ifdef OS_MACOS
-#include <util.h>
-#elif defined(__linux__)
-#include <pty.h>
+#ifdef __APPLE__
+    #include <util.h>
+#elif defined(linux)
+    #include <pty.h>
 #endif
 
 #include <fcntl.h>
