@@ -48,6 +48,7 @@ std::string attach(std::vector<std::string> words, int client_fd) {
     struct cmsghdr *cmsg;
     char            control[CMSG_SPACE(sizeof(int))];
     int             master_fd;
+    int             dup_master;
 
     if (words.size() < 2) return "Usage: attach <service_name>\n";
 
@@ -66,6 +67,11 @@ std::string attach(std::vector<std::string> words, int client_fd) {
         return "Error: Invalid PTY file descriptor.\n";
     }
 
+    dup_master = dup(master_fd);
+    if (dup_master < 0) return "Error: Failed to duplicate PTY descriptor.\n";
+    std::cout << "[SERVER] Attaching to service: " << program_name << " (PTY FD DUP: " << dup_master
+              << ")" << std::endl;
+
     iov.iov_base       = buf;
     iov.iov_len        = sizeof(buf);
     msg.msg_iov        = &iov;
@@ -80,11 +86,11 @@ std::string attach(std::vector<std::string> words, int client_fd) {
     cmsg->cmsg_type  = SCM_RIGHTS;
     cmsg->cmsg_len   = CMSG_LEN(sizeof(int));
 
-    *((int *)CMSG_DATA(cmsg)) = master_fd;
+    *((int *)CMSG_DATA(cmsg)) = dup_master;
 
     if (sendmsg(client_fd, &msg, 0) == -1) return "Error: Failed to send PTY descriptor.\n";
 
-    return "Attached successfully.\n";
+    return "";
 }
 
 std::string handle_cmd(std::string cmd, int server_fd, int client_fd) {

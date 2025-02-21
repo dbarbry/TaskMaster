@@ -116,12 +116,14 @@ class Shell {
 
         int pty_fd = *((int *)CMSG_DATA(cmsg));
         std::cout << "Attached to " << service_name << std::endl;
+        std::cout << "'detach' to leave" << std::endl;
 
         struct termios old_tio, new_tio;
         tcgetattr(STDIN_FILENO, &old_tio);
         new_tio = old_tio;
         new_tio.c_lflag |= ICANON | ECHO;
         // &= ~(ICANON | ECHO) to process raw buffer (1 char = 1 buffer)
+        new_tio.c_cc[VQUIT] = _POSIX_VDISABLE;
         tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
 
         char buffer[1024];
@@ -137,7 +139,10 @@ class Shell {
                 ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer));
 
                 if (n <= 0) break;
-                if (buffer[0] == 0x1C) {  // 0x1C = Ctrl + backslash
+                buffer[n] = '\0';
+                std::string input(buffer);
+
+                if (input == "detach\n") {
                     std::cout << "\n[CLIENT] Detaching from " << service_name << "...\n";
                     break;
                 }
