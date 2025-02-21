@@ -1,8 +1,13 @@
 #ifndef MAIN_HPP
 #define MAIN_HPP
 
-#include <fcntl.h>
+#ifdef OS_MACOS
+#include <util.h>
+#elif defined(__linux__)
 #include <pty.h>
+#endif
+
+#include <fcntl.h>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <sys/ioctl.h>
