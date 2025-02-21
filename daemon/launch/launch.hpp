@@ -1,8 +1,13 @@
 #ifndef LAUNCH_HPP
 #define LAUNCH_HPP
 
+#ifdef __APPLE__
+    #include <util.h>
+#elif defined(linux)
+    #include <pty.h>
+#endif
+
 #include <fcntl.h>
-#include <pty.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>

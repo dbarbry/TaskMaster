@@ -3,7 +3,7 @@
 
 #ifdef __APPLE__
 #include <util.h>
-#elif defined(__linux__)
+#elif defined(linux)
 #include <pty.h>
 #endif
 
