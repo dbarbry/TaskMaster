@@ -8,6 +8,8 @@
 #include <sstream>
 #include <vector>
 
+#include "../incs/start_command.hpp"
+
 extern std::map<std::string, int> active_programs;
 
 std::string status(std::vector<std::string> words) {
@@ -93,7 +95,7 @@ std::string attach(std::vector<std::string> words, int client_fd) {
     return "";
 }
 
-std::string handle_cmd(std::string cmd, int server_fd, int client_fd) {
+std::string handle_cmd(std::string cmd, int server_fd, int client_fd, std::map<std::string, std::vector<std::string>> parsedCommand, std::map<std::string, ProgramConfig> programs) {
     std::istringstream       iss(cmd);
     std::vector<std::string> words;
     std::string              word;
@@ -109,8 +111,10 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd) {
     const std::string &command = words[0];
     if (command == "status")
         response << status(words);
-    else if (command == "start")
+    else if (command == "start") {
         response << start(words);
+        startCommand(parsedCommand, programs);
+    }
     else if (command == "stop")
         response << stop(words);
     else if (command == "restart")

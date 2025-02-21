@@ -65,7 +65,7 @@ void daemonize(void) {
     close(log_fd);
 }
 
-void handle_client(int client_fd, int server_fd) {
+void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramConfig> programs) {
     char    buffer[BUFFER_SIZE];
     ssize_t read_len;
 
@@ -81,10 +81,11 @@ void handle_client(int client_fd, int server_fd) {
             std::cout << "Client disconnected" << std::endl;
             break;
         }
-        std::cout << "Received: " << buffer;
+        std::cout << "[DEBUG] Received: " << buffer;
+        std::map<std::string, std::vector<std::string>> parsedCommand = commandParsing(buffer);
         std::string clean_buffer(buffer);
+        std::string response = handle_cmd(clean_buffer, server_fd, client_fd, parsedCommand, programs);
 
-        std::string response = handle_cmd(clean_buffer, server_fd, client_fd);
         if (!response.empty()) {
             if (write(client_fd, response.c_str(), response.size()) <= 0) {
                 perror("write failed");
@@ -96,7 +97,7 @@ void handle_client(int client_fd, int server_fd) {
     close(client_fd);
 }
 
-void run_server(void) {
+void run_server(std::map<std::string, ProgramConfig> programs) {
     int                server_fd, client_fd;
     struct sockaddr_un address;
 
@@ -127,7 +128,7 @@ void run_server(void) {
             perror("accept failed");
             continue;
         }
-        handle_client(client_fd, server_fd);
+        handle_client(client_fd, server_fd, programs);
     }
 
     close(server_fd);
@@ -166,7 +167,7 @@ int main(int ac, char **av) {
     std::thread program_thread(exec_programs, programs);
 
     // daemonize();
-    run_server();
+    run_server(programs);
 
     program_thread.join();
 
