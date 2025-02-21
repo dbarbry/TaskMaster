@@ -164,7 +164,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 
         std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
         execvpe_compat(av[0], av.data(), envp.data());
-        std ::cout << "[PID " << getpid() << "] Executing: " << av[0] << av.data()  << std::endl;
+        std ::cout << "[PID " << getpid() << "] Executing: " << av[0] << av.data() << std::endl;
 
         int err = errno;
         std::cerr << "Execution failed for: " << config.getCmd() << " (Error: " << strerror(err)
@@ -181,15 +181,17 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
     while (!pids->empty()) {
-        int status;
+        int   status;
         pid_t pid;
         for (auto it = pids->begin(); it != pids->end();) {
             pid = waitpid(*it, &status, WNOHANG);
             if (pid > 0) {
                 if (WIFEXITED(status)) {
-                    std::cout << "[PID " << pid << "] exited with code: " << WEXITSTATUS(status) << std::endl;
+                    std::cout << "[PID " << pid << "] exited with code: " << WEXITSTATUS(status)
+                              << std::endl;
                 } else if (WIFSIGNALED(status)) {
-                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status) << std::endl;
+                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status)
+                              << std::endl;
                 }
                 it = pids->erase(it);
             } else {
@@ -209,7 +211,7 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
         int       nbr_instances = config.getNumprocs();
 
         for (int i = 0; i < nbr_instances; i++) {
-            int retries = 0;
+            int   retries = 0;
             pid_t pid;
             while (retries < max_retries) {
                 pid = launch_program(name, config);
@@ -223,5 +225,3 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
     std::thread monitor_thread(monitoring, pids);
     monitor_thread.detach();
 }
-
-

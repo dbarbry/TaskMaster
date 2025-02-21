@@ -1,13 +1,13 @@
 #include "../incs/command_parsing.hpp"
+
 #include <iostream>
-#include <sstream>
 #include <map>
+#include <sstream>
 #include <vector>
 
-std::map<std::string, std::vector<std::string>> commandParsing(std::string cmd)
-{
-    std::istringstream iss(cmd);
-    std::string word;
+std::map<std::string, std::vector<std::string>> commandParsing(std::string cmd) {
+    std::istringstream                              iss(cmd);
+    std::string                                     word;
     std::map<std::string, std::vector<std::string>> parsedCommand;
 
     if (iss >> word) {

@@ -58,49 +58,49 @@ endif
 ./obj_client/%.o: ./$(NAME_CLIENT)/%.cpp $(HDR_CLIENT)
 	mkdir -p $(OBJ_CLIENT_REP) $(OBJ_CLIENT_REP)/utils
 	$(CXX) $(FLAGS) $(HDR_FLAGS_C) -c $< -o $@
-	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[56G[✔]$(RST)"
 
 ./obj_daemon/%.o: ./$(NAME_SERVER)/%.cpp $(HDR_SERVER)
 	mkdir -p $(OBJ_SERVER_REP) $(OBJ_SERVER_REP)/utils
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) -c $< -o $@
-	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(BBLU)[$(NAME) OBJ] :$(RST) $@ $(BGREEN)\033[56G[✔]$(RST)"
 
 $(NAME): $(OBJ_CLIENT) $(OBJ_SERVER)
 	$(CXX) $(FLAGS) $(HDR_FLAGS_C) $(OBJ_CLIENT) $(RDLINE_FLAGS) -o $(NAME_CLIENT).out
-	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_CLIENT).out $(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_CLIENT).out $(BGREEN)\033[56G[✔]$(RST)"
 	$(CXX) $(FLAGS) $(HDR_FLAGS_D) $(OBJ_SERVER) -o $(NAME_SERVER).out
-	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_SERVER).out $(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(BGREEN)[$(NAME) END] :$(RST)$(RST) ./$(NAME_SERVER).out $(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: $(NAME)
 
 client:
 	@if [ ! -f "./$(NAME_CLIENT).out" ]; then \
-		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[47G[✘]$(RST)"; \
+		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
 		exit 0; \
 	fi
-	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_CLIENT).out...$(BGREEN)\033[47G[✔]$(RST)"
+	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_CLIENT).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_CLIENT).out || true
 .PHONY: client
 
 server:
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
 	if [ "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[47G[✘]$(RST)"; \
+		echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
 		exit 0; \
 	fi; \
 	if [ ! -f "./$(NAME_SERVER).out" ]; then \
-		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[47G[✘]$(RST)"; \
+		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
 		exit 0; \
 	fi
-	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[47G[✔]$(RST)"
+	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_SERVER).out $(RUN_ARGS) || true
 .PHONY: server
 
 kill:
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
 	if [ -z "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[47G[✘]$(RST)"; \
+		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
 	else \
-		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[47G[✔]$(RST)"; \
+		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
 		kill $$PID; \
 	fi
 .PHONY: kill
@@ -108,16 +108,16 @@ kill:
 clean:
 	$(RM) $(OBJ_CLIENT) $(OBJ_SERVER)
 	$(RM) -r $(OBJ_CLIENT_REP) $(OBJ_SERVER_REP)
-	echo "$(RED)[CLEAN]  :$(RST) Deleting objects...$(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(RED)[CLEAN]  :$(RST) Deleting objects...$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: clean
 
 clean_log:
 	$(RM) -r $(NAME_LOG)
-	echo "$(RED)[FCLEAN] :$(RST) Deleting logs...$(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(RED)[FCLEAN] :$(RST) Deleting logs...$(BGREEN)\033[56G[✔]$(RST)"
 
 fclean: clean
 	$(RM) $(NAME_CLIENT).out $(NAME_SERVER).out
-	echo "$(RED)[FCLEAN] :$(RST) Deleting executable...$(BGREEN)\033[47G[✔]$(RST)"
+	echo "$(RED)[FCLEAN] :$(RST) Deleting executable...$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: fclean
 
 re: fclean

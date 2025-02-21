@@ -95,7 +95,9 @@ std::string attach(std::vector<std::string> words, int client_fd) {
     return "";
 }
 
-std::string handle_cmd(std::string cmd, int server_fd, int client_fd, std::map<std::string, std::vector<std::string>> parsedCommand, std::map<std::string, ProgramConfig> programs) {
+std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
+                       std::map<std::string, std::vector<std::string>> parsedCommand,
+                       std::map<std::string, ProgramConfig>            programs) {
     std::istringstream       iss(cmd);
     std::vector<std::string> words;
     std::string              word;
@@ -114,8 +116,7 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd, std::map<s
     else if (command == "start") {
         response << start(words);
         startCommand(parsedCommand, programs);
-    }
-    else if (command == "stop")
+    } else if (command == "stop")
         response << stop(words);
     else if (command == "restart")
         response << restart(words);

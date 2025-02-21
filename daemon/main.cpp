@@ -83,8 +83,9 @@ void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramCo
         }
         std::cout << "[DEBUG] Received: " << buffer;
         std::map<std::string, std::vector<std::string>> parsedCommand = commandParsing(buffer);
-        std::string clean_buffer(buffer);
-        std::string response = handle_cmd(clean_buffer, server_fd, client_fd, parsedCommand, programs);
+        std::string                                     clean_buffer(buffer);
+        std::string                                     response =
+            handle_cmd(clean_buffer, server_fd, client_fd, parsedCommand, programs);
 
         if (!response.empty()) {
             if (write(client_fd, response.c_str(), response.size()) <= 0) {
