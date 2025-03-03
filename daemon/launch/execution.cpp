@@ -1,4 +1,5 @@
 #include "launch.hpp"
+#include "../cmds/service_state.hpp"
 
 std::map<std::string, int> active_programs;
 volatile sig_atomic_t      child_exited = 0;
@@ -86,6 +87,10 @@ void set_environment(const std::map<std::string, std::string> &env,
 }
 
 void redirect_output(int pty_fd, const std::string &stdout_file, const std::string &stderr_file) {
+    if (pty_fd >= 0) {
+        return;
+    }
+
     int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
     int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
@@ -94,16 +99,13 @@ void redirect_output(int pty_fd, const std::string &stdout_file, const std::stri
 
     if (stdout_fd >= 0) {
         dup2(stdout_fd, STDOUT_FILENO);
-        if (pty_fd >= 0) dup2(pty_fd, STDOUT_FILENO);
+        close(stdout_fd);
     }
 
     if (stderr_fd >= 0) {
         dup2(stderr_fd, STDERR_FILENO);
-        if (pty_fd >= 0) dup2(pty_fd, STDERR_FILENO);
+        close(stderr_fd);
     }
-
-    close(stdout_fd);
-    close(stderr_fd);
 }
 
 pid_t launch_program(const std::string &name, const ProgramConfig &config) {
@@ -155,6 +157,14 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         _exit(1);
     }
     close(slave_fd);
+    {
+        // std::lock_guard<std::mutex> lock(serviceMutex);
+        if (active_programs.count(name) > 0) {
+            std::cout << "[PTY] Closing previous PTY for " << name << std::endl;
+            close(active_programs[name]);
+            active_programs.erase(name);
+        }
+    }
     std::cout << "[SERVER] Storing PTY FD for: " << name << " (FD: " << master_fd << ")"
               << std::endl;
     active_programs[name] = master_fd;
@@ -163,26 +173,75 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 }
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
+    // Map pour associer les PIDs aux noms de services et configurations
+    std::map<pid_t, std::string> pidToService;
+    std::map<std::string, const ProgramConfig*> serviceConfig;
+    
+    {
+        // std::lock_guard<std::mutex> lock(serviceMutex);
+        for (const auto& [serviceName, serviceInfo] : runningServices) {
+            for (pid_t pid : serviceInfo.pids) {
+                if (std::find(pids->begin(), pids->end(), pid) != pids->end()) {
+                    pidToService[pid] = serviceName;
+                }
+            }
+        }
+    }
+    
+    // Ajouter un log pour le débogage
+    std::cout << "[MONITOR] Started monitoring " << pids->size() << " processes" << std::endl;
+    
     while (!pids->empty()) {
-        int   status;
+        int status;
         pid_t pid;
+        
         for (auto it = pids->begin(); it != pids->end();) {
             pid = waitpid(*it, &status, WNOHANG);
+            
             if (pid > 0) {
+                // Processus terminé
+                int exitCode = 0;
                 if (WIFEXITED(status)) {
-                    std::cout << "[PID " << pid << "] exited with code: " << WEXITSTATUS(status)
-                              << std::endl;
+                    exitCode = WEXITSTATUS(status);
+                    std::cout << "[PID " << pid << "] exited with code: " << exitCode << std::endl;
                 } else if (WIFSIGNALED(status)) {
-                    std::cout << "[PID " << pid << "] killed by signal: " << WTERMSIG(status)
-                              << std::endl;
+                    int signal = WTERMSIG(status);
+                    std::cout << "[PID " << pid << "] killed by signal: " << signal << std::endl;
+                    exitCode = 128 + signal; // Convention pour les signaux
                 }
+                
+                // Mettre à jour l'état du service
+                if (pidToService.count(pid) > 0) {
+                    std::string serviceName = pidToService[pid];
+                    
+                    // Nettoyage du PTY associé à ce processus
+                    {
+                        // std::lock_guard<std::mutex> lock(serviceMutex);
+                        if (active_programs.count(serviceName) > 0) {
+                            close(active_programs[serviceName]);
+                            active_programs.erase(serviceName);
+                            std::cout << "[PTY] Closed PTY for service: " << serviceName << std::endl;
+                        }
+                    }
+                    
+                    removeServicePid(serviceName, pid);
+                    std::cout << "[MONITOR] Service " << serviceName << " has " 
+                              << getServiceInstanceCount(serviceName) << " instances remaining" << std::endl;
+                }
+                
+                it = pids->erase(it);
+            } else if (pid < 0 && errno != EINTR) {
+                // Erreur avec waitpid
+                std::cerr << "[MONITOR] Error in waitpid: " << strerror(errno) << std::endl;
                 it = pids->erase(it);
             } else {
                 ++it;
             }
         }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    
+    std::cout << "[MONITOR] Monitoring thread finished" << std::endl;
 }
 
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {

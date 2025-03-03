@@ -2,9 +2,9 @@
 #define LAUNCH_HPP
 
 #ifdef __APPLE__
-    #include <util.h>
+#include <util.h>
 #elif defined(linux)
-    #include <pty.h>
+#include <pty.h>
 #endif
 
 #include <fcntl.h>
@@ -13,6 +13,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include "../cmds/service_types.hpp" // Inclure les types communs
+// Supprimer l'inclusion de service_state.hpp pour éviter le cycle
+// #include "./cmds/service_state.hpp"
 
 #include <algorithm>
 #include <csignal>
@@ -76,6 +80,8 @@ class ProgramConfig {
     void setStdoutFile(const std::string& value) { stdout_file = value; }
     void setStderrFile(const std::string& value) { stderr_file = value; }
     void setEnv(const std::map<std::string, std::string>& value) { env = value; }
+
+    
 
     void logConfig() const {
         std::cout << "cmd: " << getCmd() << std::endl;
@@ -165,5 +171,8 @@ class ProgramConfig {
 void exec_programs(const std::map<std::string, ProgramConfig>& programs);
 void log_config(const std::map<std::string, ProgramConfig>& programs);
 std::map<std::string, ProgramConfig> parsing(std::string filename);
+pid_t launch_program(const std::string &name, const ProgramConfig &config);
+void setup_signal_handlers();
+
 
 #endif
