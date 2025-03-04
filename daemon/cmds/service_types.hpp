@@ -12,12 +12,18 @@ enum class ProcessState {
     FATAL,
     UNKNOWN
 };
-
-struct ServiceInfo {
-    std::vector<pid_t> pids;
+struct ProcessInfo {
+    pid_t pid;
     ProcessState state;
     int retries;
-    std::time_t lastStartTime;
+    std::time_t startTime;
+    int exitCode;
+};
+
+struct ServiceInfo {
+    std::string name;
+    std::vector<ProcessInfo> processes;
+    ProcessState overallState;
 };
 
 class ProgramConfig;

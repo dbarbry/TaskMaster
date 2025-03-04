@@ -101,12 +101,10 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
     }
 
     const std::string &command = words[0];
-    if (command == "status")
-    {
+    if (command == "status") {
         response << status(words);
         statusCommand(parsedCommand, programs);
-    }
-    else if (command == "start") {
+    } else if (command == "start") {
         response << start(words);
         startCommand(parsedCommand, programs);
     } else if (command == "stop") {

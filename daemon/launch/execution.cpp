@@ -1,5 +1,5 @@
-#include "launch.hpp"
 #include "../cmds/service_state.hpp"
+#include "launch.hpp"
 
 std::map<std::string, int> active_programs;
 volatile sig_atomic_t      child_exited = 0;
@@ -174,30 +174,29 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
     // Map pour associer les PIDs aux noms de services et configurations
-    std::map<pid_t, std::string> pidToService;
-    std::map<std::string, const ProgramConfig*> serviceConfig;
-    
+    std::map<pid_t, std::string>                 pidToService;
+    std::map<std::string, const ProgramConfig *> serviceConfig;
+
     {
-        // std::lock_guard<std::mutex> lock(serviceMutex);
-        for (const auto& [serviceName, serviceInfo] : runningServices) {
-            for (pid_t pid : serviceInfo.pids) {
+        for (const auto &[serviceName, serviceInfo] : runningServices) {
+            for (const auto &process : serviceInfo.processes) {
+                pid_t pid = process.pid;
                 if (std::find(pids->begin(), pids->end(), pid) != pids->end()) {
                     pidToService[pid] = serviceName;
                 }
             }
         }
     }
-    
-    // Ajouter un log pour le débogage
+
     std::cout << "[MONITOR] Started monitoring " << pids->size() << " processes" << std::endl;
-    
+
     while (!pids->empty()) {
-        int status;
+        int   status;
         pid_t pid;
-        
+
         for (auto it = pids->begin(); it != pids->end();) {
             pid = waitpid(*it, &status, WNOHANG);
-            
+
             if (pid > 0) {
                 // Processus terminé
                 int exitCode = 0;
@@ -207,28 +206,30 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                 } else if (WIFSIGNALED(status)) {
                     int signal = WTERMSIG(status);
                     std::cout << "[PID " << pid << "] killed by signal: " << signal << std::endl;
-                    exitCode = 128 + signal; // Convention pour les signaux
+                    exitCode = 128 + signal;  // Convention pour les signaux
                 }
-                
+
                 // Mettre à jour l'état du service
                 if (pidToService.count(pid) > 0) {
                     std::string serviceName = pidToService[pid];
-                    
+
                     // Nettoyage du PTY associé à ce processus
                     {
                         // std::lock_guard<std::mutex> lock(serviceMutex);
                         if (active_programs.count(serviceName) > 0) {
                             close(active_programs[serviceName]);
                             active_programs.erase(serviceName);
-                            std::cout << "[PTY] Closed PTY for service: " << serviceName << std::endl;
+                            std::cout << "[PTY] Closed PTY for service: " << serviceName
+                                      << std::endl;
                         }
                     }
-                    
-                    removeServicePid(serviceName, pid);
-                    std::cout << "[MONITOR] Service " << serviceName << " has " 
-                              << getServiceInstanceCount(serviceName) << " instances remaining" << std::endl;
+
+                    updateProcessState(serviceName, pid, ProcessState::STOPPED, exitCode);
+                    std::cout << "[MONITOR] Service " << serviceName << " has "
+                              << getServiceInstanceCount(serviceName) << " instances remaining"
+                              << std::endl;
                 }
-                
+
                 it = pids->erase(it);
             } else if (pid < 0 && errno != EINTR) {
                 // Erreur avec waitpid
@@ -240,7 +241,7 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    
+
     std::cout << "[MONITOR] Monitoring thread finished" << std::endl;
 }
 

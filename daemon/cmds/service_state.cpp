@@ -1,130 +1,164 @@
 #include "service_state.hpp"
+
 #include <algorithm>
 #include <iostream>
-#include "../launch/launch.hpp" 
 
-// Définition de la map globale
+#include "../launch/launch.hpp"
+
 std::map<std::string, ServiceInfo> runningServices;
-std::mutex serviceMutex;
-
-void updateServiceState(const std::string& name, ProcessState state) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    runningServices[name].state = state;
-    
-    // Log de changement d'état
-    std::cout << "[STATE] Service " << name << " state changed to ";
-    switch (state) {
-        case ProcessState::STARTING:   std::cout << "STARTING"; break;
-        case ProcessState::RUNNING:    std::cout << "RUNNING"; break;
-        case ProcessState::RESTARTING: std::cout << "RESTARTING"; break;
-        case ProcessState::STOPPED:    std::cout << "STOPPED"; break;
-        case ProcessState::FATAL:      std::cout << "FATAL"; break;
-        default:                       std::cout << "UNKNOWN"; break;
-    }
-    std::cout << std::endl;
-}
+std::mutex                         serviceMutex;
 
 bool addServicePid(const std::string& name, pid_t pid) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    // Vérification que le PID n'existe pas déjà
-    auto& pids = runningServices[name].pids;
-    if (std::find(pids.begin(), pids.end(), pid) != pids.end()) {
-        return false;
+
+    auto& processes = runningServices[name].processes;
+    for (const auto& process : processes) {
+        if (process.pid == pid) {
+            return false;
+        }
     }
-    
-    pids.push_back(pid);
-    runningServices[name].lastStartTime = std::time(nullptr);
+
+    ProcessInfo newProcess;
+    newProcess.pid       = pid;
+    newProcess.state     = ProcessState::RUNNING;
+    newProcess.retries   = 0;
+    newProcess.startTime = std::time(nullptr);
+    newProcess.exitCode  = 0;
+
+    processes.push_back(newProcess);
+
+    if (runningServices[name].name.empty()) {
+        runningServices[name].name = name;
+    }
+
     std::cout << "[PID] Added PID " << pid << " to service " << name << std::endl;
     return true;
 }
 
-bool removeServicePid(const std::string& name, pid_t pid) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    if (runningServices.count(name) == 0) return false;
-    
-    auto& pids = runningServices[name].pids;
-    auto it = std::find(pids.begin(), pids.end(), pid);
-    
-    if (it != pids.end()) {
-        pids.erase(it);
-        std::cout << "[PID] Removed PID " << pid << " from service " << name << std::endl;
-        
-        // Si c'était le dernier processus, le service est arrêté
-        if (pids.empty()) {
-            updateServiceState(name, ProcessState::STOPPED);
-        }
-        
-        return true;
+bool isServiceRunning(const std::string& name) {
+    if (runningServices.count(name) > 0) {
+        return !runningServices[name].processes.empty();
     }
     return false;
 }
 
-void clearService(const std::string& name) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
-    
+void incrementRetries(const std::string& name) {
     if (runningServices.count(name) > 0) {
-        std::cout << "[SERVICE] Cleared service " << name << std::endl;
-        runningServices.erase(name);
+        for (auto& process : runningServices[name].processes) {
+            process.retries++;
+        }
+        std::cout << "[RETRY] Incremented retry count for service " << name << std::endl;
     }
 }
 
-bool isServiceRunning(const std::string& name) {
-    std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    return runningServices.count(name) > 0 && 
-           !runningServices[name].pids.empty() && 
-           runningServices[name].state == ProcessState::RUNNING;
+bool removeServicePid(const std::string& name, pid_t pid) {
+
+    if (runningServices.count(name) == 0) return false;
+
+    auto& processes = runningServices[name].processes;
+    for (auto it = processes.begin(); it != processes.end(); ++it) {
+        if (it->pid == pid) {
+            it->state = ProcessState::STOPPED;
+            std::cout << "[PID] Process " << pid << " of service " << name << " marked as STOPPED"
+                      << std::endl;
+
+            return true;
+        }
+    }
+    return false;
 }
 
 size_t getServiceInstanceCount(const std::string& name) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
-    
     if (runningServices.count(name) > 0) {
-        return runningServices[name].pids.size();
+        size_t count = 0;
+        for (const auto& process : runningServices[name].processes) {
+            if (process.state == ProcessState::RUNNING || process.state == ProcessState::STARTING ||
+                process.state == ProcessState::RESTARTING) {
+                count++;
+            }
+        }
+        return count;
     }
     return 0;
 }
 
-ServiceInfo getServiceInfo(const std::string& name) {
+void updateServiceState(const std::string& name, ProcessState state) {
     // std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    if (runningServices.count(name) > 0) {
-        return runningServices[name];
+
+    runningServices[name].overallState = state;
+
+    // Log de changement d'état
+    std::cout << "[STATE] Service " << name << " state changed to ";
+    switch (state) {
+        case ProcessState::STARTING:
+            std::cout << "STARTING";
+            break;
+        case ProcessState::RUNNING:
+            std::cout << "RUNNING";
+            break;
+        case ProcessState::RESTARTING:
+            std::cout << "RESTARTING";
+            break;
+        case ProcessState::STOPPED:
+            std::cout << "STOPPED";
+            break;
+        case ProcessState::FATAL:
+            std::cout << "FATAL";
+            break;
+        default:
+            std::cout << "UNKNOWN";
+            break;
     }
-    return ServiceInfo();
+    std::cout << std::endl;
 }
 
-void incrementRetries(const std::string& name) {
+// Ajouter une nouvelle fonction pour mettre à jour l'état d'un processus spécifique
+bool updateProcessState(const std::string& name, pid_t pid, ProcessState state, int exitCode) {
     // std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    if (runningServices.count(name) > 0) {
-        runningServices[name].retries++;
-    }
-}
 
-bool shouldRestart(const std::string& name, const ProgramConfig& config, int exitCode) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
-    
-    // Vérifier si le service existe dans runningServices
     if (runningServices.count(name) == 0) return false;
-    
-    // Vérifier la configuration de redémarrage
-    std::string autorestart = config.getAutorestart();
-    
-    if (autorestart == "never") {
-        return false;
+
+    auto& processes = runningServices[name].processes;
+    for (auto& process : processes) {
+        if (process.pid == pid) {
+            process.state    = state;
+            process.exitCode = exitCode;
+            return true;
+        }
     }
-    else if (autorestart == "always") {
-        return true;
-    }
-    else if (autorestart == "unexpected") {
-        // Vérifier si le code de sortie est dans la liste des codes attendus
-        const auto& exitcodes = config.getExitcodes();
-        return std::find(exitcodes.begin(), exitcodes.end(), exitCode) == exitcodes.end();
-    }
-    
     return false;
+}
+
+void cleanupOldProcesses(const std::string& name, size_t maxStoppedToKeep) {
+    if (runningServices.count(name) == 0) return;
+
+    auto& processes = runningServices[name].processes;
+
+    std::vector<size_t> stoppedIndices;
+    for (size_t i = 0; i < processes.size(); i++) {
+        if (processes[i].state == ProcessState::STOPPED) {
+            stoppedIndices.push_back(i);
+        }
+    }
+
+    if (stoppedIndices.size() > maxStoppedToKeep) {
+        std::sort(stoppedIndices.begin(), stoppedIndices.end(), [&processes](size_t a, size_t b) {
+            return processes[a].startTime < processes[b].startTime;
+        });
+
+        size_t             toRemove = stoppedIndices.size() - maxStoppedToKeep;
+        std::vector<pid_t> pidsToRemove;
+
+        for (size_t i = 0; i < toRemove; i++) {
+            pidsToRemove.push_back(processes[stoppedIndices[i]].pid);
+        }
+
+        std::sort(stoppedIndices.begin(), stoppedIndices.begin() + toRemove,
+                  std::greater<size_t>());
+        for (size_t i = 0; i < toRemove; i++) {
+            processes.erase(processes.begin() + stoppedIndices[i]);
+        }
+
+        std::cout << "[CLEANUP] Removed " << toRemove << " old stopped processes from " << name
+                  << std::endl;
+    }
 }

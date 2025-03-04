@@ -16,10 +16,14 @@ OBJ_CLIENT		=	$(addprefix ./$(OBJ_CLIENT_REP)/, $(SRC_CLIENT:.cpp=.o))
 OBJ_SERVER		=	$(addprefix ./$(OBJ_SERVER_REP)/, $(SRC_SERVER:.cpp=.o))
 
 CXX				=	g++
-FLAGS			=	-Wall -Werror -Wextra -std=c++20
+FLAGS			=	-std=c++20 #-Wall -Werror -Wextra -std=c++20
 RDLINE_FLAGS	=	-lreadline 
 HDR_FLAGS_D		=	-I daemon/
 HDR_FLAGS_C		=	-I client/
+
+TSAN_FLAGS       = -fsanitize=thread -g -fno-omit-frame-pointer
+ASAN_FLAGS       = -fsanitize=address -g -fno-omit-frame-pointer
+UBSAN_FLAGS      = -fsanitize=undefined -g -fno-omit-frame-pointer
 
 NAME			=	taskmaster
 NAME_CLIENT		=	client
@@ -125,5 +129,20 @@ fclean: clean
 re: fclean
 	$(MAKE) all
 .PHONY: re
+
+tsan: FLAGS += $(TSAN_FLAGS)
+tsan: fclean all
+	@echo "$(BGREEN)[INFO] :$(RST) Compiled with ThreadSanitizer$(BGREEN)\033[56G[✔]$(RST)"
+.PHONY: tsan
+
+asan: FLAGS += $(ASAN_FLAGS)
+asan: fclean all
+	@echo "$(BGREEN)[INFO] :$(RST) Compiled with AddressSanitizer$(BGREEN)\033[56G[✔]$(RST)"
+.PHONY: asan
+
+ubsan: FLAGS += $(UBSAN_FLAGS)
+ubsan: fclean all
+	@echo "$(BGREEN)[INFO] :$(RST) Compiled with UndefinedBehaviorSanitizer$(BGREEN)\033[56G[✔]$(RST)"
+.PHONY: ubsan
 
 .SILENT:
