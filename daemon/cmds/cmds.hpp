@@ -15,7 +15,9 @@
 #include <string>
 #include <vector>
 
+#include "../cmds/service_types.hpp"
 #include "../launch/launch.hpp"
+#include "./service_state.hpp"
 
 std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
                        std::map<std::string, std::vector<std::string>> parsedCommand,
@@ -29,6 +31,8 @@ void        stopCommand(const std::map<std::string, std::vector<std::string>> &c
                         const std::map<std::string, ProgramConfig>            &programs);
 std::string attachCommand(std::vector<std::string> words, int client_fd);
 
+void statusCommand(const std::map<std::string, std::vector<std::string>> &cmd,
+                   const std::map<std::string, ProgramConfig>            &programs);
 bool isAlreadyRunning(const std::string &programPath);
 
 #endif
