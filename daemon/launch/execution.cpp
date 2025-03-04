@@ -1,4 +1,5 @@
 #include "../cmds/service_state.hpp"
+#include <pty.h>
 #include "launch.hpp"
 
 std::map<std::string, int> active_programs;

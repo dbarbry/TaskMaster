@@ -81,7 +81,7 @@ $(NAME): $(OBJ_CLIENT) $(OBJ_SERVER)
 client:
 	@if [ ! -f "./$(NAME_CLIENT).out" ]; then \
 		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
-		exit 0; \
+		exit 1; \
 	fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_CLIENT).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_CLIENT).out || true
@@ -91,11 +91,11 @@ server:
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
 	if [ "$$PID" ]; then \
 		echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
-		exit 0; \
+		exit 1; \
 	fi; \
 	if [ ! -f "./$(NAME_SERVER).out" ]; then \
 		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
-		exit 0; \
+		exit 1; \
 	fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_SERVER).out $(RUN_ARGS) || true

@@ -2,9 +2,9 @@
 #define MAIN_HPP
 
 #ifdef __APPLE__
-    #include <util.h>
+#include <util.h>
 #elif defined(linux)
-    #include <pty.h>
+#include <pty.h>
 #endif
 
 #include <fcntl.h>
@@ -53,33 +53,6 @@ class Shell {
     }
 
    private:
-    std::string parse_cmd(const std::string &cmd) {
-        std::istringstream iss(cmd);
-        std::ostringstream oss;
-        std::string        word;
-        bool               first = true;
-
-        while (iss >> word) {
-            if (!first) oss << " ";
-            oss << word;
-            first = false;
-        }
-
-        return oss.str();
-    }
-
-    std::vector<std::string> cmd_to_words(const std::string &cmd) {
-        std::istringstream       iss(cmd);
-        std::vector<std::string> words;
-        std::string              word;
-
-        while (iss >> word) {
-            words.push_back(word);
-        }
-
-        return words;
-    }
-
     bool send_cmd(int fd, const std::string &cmd) {
         char        buffer[BUFFER_SIZE] = {0};
         std::string message             = cmd + "\n";
@@ -104,13 +77,15 @@ class Shell {
     }
 
     int attach_pty(int fd, const std::string &service_name) {
-        std::string     message = "attach " + service_name + "\n";
+        std::string     message        = "attach " + service_name + "\n";
+        std::string     detach_message = "detach " + service_name + "\n";
         struct msghdr   msg;
         struct iovec    iov;
         char            buf[1] = {0};
         struct cmsghdr *cmsg;
         char            control[CMSG_SPACE(sizeof(int))];
 
+        flush_socket(fd);
         if (write(fd, message.c_str(), message.size()) <= 0) {
             perror("write failed");
             return -1;
@@ -166,7 +141,7 @@ class Shell {
                 std::string input(buffer);
 
                 if (input == "detach\n") {
-                    std::cout << "\n[CLIENT] Detaching from " << service_name << "...\n";
+                    std::cout << "\n[CLIENT] Detaching from " << service_name << "..." << std::endl;
                     break;
                 }
                 if (write(pty_fd, buffer, n) <= 0) {
@@ -184,6 +159,11 @@ class Shell {
             }
         }
 
+        if (write(fd, detach_message.c_str(), detach_message.size()) <= 0) {
+            perror("write detach failed");
+        }
+        flush_socket(fd);
+
         tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
         close(pty_fd);
         return 0;
@@ -191,7 +171,7 @@ class Shell {
 
     bool analyze_cmd(int fd, const std::string &cmd) {
         std::string              cleaned_cmd = parse_cmd(cmd);
-        std::vector<std::string> words       = cmd_to_words(cleaned_cmd);
+        std::vector<std::string> words       = split_cmd(cleaned_cmd);
 
         if (words.empty()) return true;
         const std::string &command = words[0];

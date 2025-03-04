@@ -25,10 +25,11 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
 
 std::map<std::string, std::vector<std::string>> commandParsing(std::string cmd);
 
-void startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
-                  const std::map<std::string, ProgramConfig>            &programs);
-void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
-                 const std::map<std::string, ProgramConfig>            &programs);
+void        startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
+                         const std::map<std::string, ProgramConfig>            &programs);
+void        stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
+                        const std::map<std::string, ProgramConfig>            &programs);
+std::string attachCommand(std::vector<std::string> words, int client_fd);
 
 void statusCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                    const std::map<std::string, ProgramConfig>            &programs);
