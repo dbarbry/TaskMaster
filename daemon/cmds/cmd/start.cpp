@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 
+#include "../../logger.hpp"
 #include "../cmds.hpp"
 #include "launch/launch.hpp"
 
@@ -17,27 +18,27 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids);
 
 void startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                   const std::map<std::string, ProgramConfig>            &programs) {
-    std::cout << "Starting command logic" << std::endl;
+    Logger::info("Starting command logic");
 
     if (!cmd.count("args") || cmd.at("args").empty()) {
-        std::cerr << "No program specified to start." << std::endl;
+        Logger::error("No program specified to start.");
         return;
     }
 
     std::string requestedProgram = cmd.at("args")[0];
-    std::cout << "[DEBUG] Requested program: " << requestedProgram << std::endl;
+    Logger::debug("Requested program: " + requestedProgram);
 
     auto it = programs.find(requestedProgram);
     if (it == programs.end()) {
-        std::cerr << "Program " << requestedProgram << " not found in configuration." << std::endl;
+        Logger::error("Program " + requestedProgram + " not found in configuration.");
         return;
     }
     const ProgramConfig &configFromFile = it->second;
     int                  maxInstances   = configFromFile.getNumprocs();
 
     if (getServiceInstanceCount(requestedProgram) >= static_cast<size_t>(maxInstances)) {
-        std::cerr << "The program " << requestedProgram << " already has " << maxInstances
-                  << " instance(s) running!" << std::endl;
+        Logger::error("The program " + requestedProgram + " already has " + 
+                    std::to_string(maxInstances) + " instance(s) running!");
         return;
     }
 
@@ -67,10 +68,10 @@ void startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
             addServicePid(requestedProgram, pid);
             updateServiceState(requestedProgram, ProcessState::RUNNING);
 
-            std::cout << "Started program " << requestedProgram << " with PID " << pid << std::endl;
+            Logger::info("Started program " + requestedProgram + " with PID " + std::to_string(pid));
         } else {
-            std::cerr << "Failed to start program " << requestedProgram << " after " << max_retries
-                      << " attempts." << std::endl;
+            Logger::error("Failed to start program " + requestedProgram + " after " + 
+                        std::to_string(max_retries) + " attempts.");
 
             if (getServiceInstanceCount(requestedProgram) == 0) {
                 updateServiceState(requestedProgram, ProcessState::FATAL);
