@@ -30,7 +30,7 @@ void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
 
     const ProgramConfig &config      = it->second;
     std::string          signalName  = config.getStopsignal();
-    int                  signalValue = SIGTERM;  // Par défaut
+    int                  signalValue = SIGTERM;
 
     // Convertir le nom du signal en valeur numérique
     if (signalName == "TERM")
@@ -48,11 +48,9 @@ void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
     else if (signalName == "USR2")
         signalValue = SIGUSR2;
 
-    // Récupérer la liste des PIDs à arrêter (copie pour éviter des problèmes pendant la modification)
     std::vector<pid_t> pidsToStop;
     {
-        // std::lock_guard<std::mutex> lock(serviceMutex);
-        // Extraire les PIDs depuis le vecteur processes
+
         for (const auto &process : runningServices[requestedProgram].processes) {
             pidsToStop.push_back(process.pid);
         }
@@ -69,7 +67,6 @@ void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
         }
     }
 
-    // Attendre que les processus se terminent (avec timeout)
     int stoptime = config.getStoptime();
     std::cout << "Waiting up to " << stoptime << " seconds for processes to terminate..."
               << std::endl;

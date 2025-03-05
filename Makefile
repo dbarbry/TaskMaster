@@ -80,35 +80,35 @@ $(NAME): $(OBJ_CLIENT) $(OBJ_SERVER)
 
 client:
 	@if [ ! -f "./$(NAME_CLIENT).out" ]; then \
-		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
-		exit 1; \
-	fi
+    	echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
+    	exit 1; \
+    fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_CLIENT).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_CLIENT).out || true
 .PHONY: client
 
 server:
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
-	if [ "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
-		exit 1; \
-	fi; \
-	if [ ! -f "./$(NAME_SERVER).out" ]; then \
-		echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
-		exit 1; \
-	fi
+    if [ "$$PID" ]; then \
+        echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
+        exit 1; \
+    fi; \
+    if [ ! -f "./$(NAME_SERVER).out" ]; then \
+        echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
+        exit 1; \
+    fi
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_SERVER).out $(RUN_ARGS) || true
 .PHONY: server
 
 kill:
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
-	if [ -z "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
-	else \
-		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
-		kill $$PID; \
-	fi
+    if [ -z "$$PID" ]; then \
+        echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
+    else \
+        echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
+        kill $$PID; \
+    fi
 .PHONY: kill
 
 clean:
@@ -130,18 +130,26 @@ re: fclean
 	$(MAKE) all
 .PHONY: re
 
-tsan: FLAGS += $(TSAN_FLAGS)
-tsan: fclean all
+# Modification de la cible tsan pour utiliser la variable make directement
+tsan: fclean
+	@$(MAKE) all FLAGS="$(FLAGS) $(TSAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with ThreadSanitizer$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: tsan
 
-asan: FLAGS += $(ASAN_FLAGS)
-asan: fclean all
+# Ajout d'une cible pour compiler sans sanitizer
+nosani: fclean
+	@$(MAKE) all FLAGS="$(filter-out $(TSAN_FLAGS), $(FLAGS))"
+	@echo "$(BGREEN)[INFO] :$(RST) Compiled without sanitizers$(BGREEN)\033[56G[✔]$(RST)"
+.PHONY: nosani
+
+# Modification similaire pour les autres sanitizers
+asan: fclean
+	@$(MAKE) all FLAGS="$(FLAGS) $(ASAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with AddressSanitizer$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: asan
 
-ubsan: FLAGS += $(UBSAN_FLAGS)
-ubsan: fclean all
+ubsan: fclean
+	@$(MAKE) all FLAGS="$(FLAGS) $(UBSAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with UndefinedBehaviorSanitizer$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: ubsan
 
