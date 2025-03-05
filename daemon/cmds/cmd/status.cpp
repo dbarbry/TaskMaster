@@ -25,7 +25,6 @@ std::string getStateString(ProcessState state) {
 
 void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
                    const std::map<std::string, ProgramConfig>&            programs) {
-    
     if (runningServices.empty()) {
         Logger::info("No services are currently registered.");
         return;
@@ -36,7 +35,8 @@ void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
     }
 
     std::stringstream header;
-    header << std::left << std::setw(35) << "NAME" << std::setw(12) << "STATUS" << std::setw(30) << "INFO";
+    header << std::left << std::setw(35) << "NAME" << std::setw(12) << "STATUS" << std::setw(30)
+           << "INFO";
     Logger::info(header.str());
     Logger::info(std::string(77, '-'));
 

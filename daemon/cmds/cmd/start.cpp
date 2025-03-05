@@ -37,8 +37,8 @@ void startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
     int                  maxInstances   = configFromFile.getNumprocs();
 
     if (getServiceInstanceCount(requestedProgram) >= static_cast<size_t>(maxInstances)) {
-        Logger::error("The program " + requestedProgram + " already has " + 
-                    std::to_string(maxInstances) + " instance(s) running!");
+        Logger::error("The program " + requestedProgram + " already has " +
+                      std::to_string(maxInstances) + " instance(s) running!");
         return;
     }
 
@@ -68,10 +68,11 @@ void startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
             addServicePid(requestedProgram, pid);
             updateServiceState(requestedProgram, ProcessState::RUNNING);
 
-            Logger::info("Started program " + requestedProgram + " with PID " + std::to_string(pid));
+            Logger::info("Started program " + requestedProgram + " with PID " +
+                         std::to_string(pid));
         } else {
-            Logger::error("Failed to start program " + requestedProgram + " after " + 
-                        std::to_string(max_retries) + " attempts.");
+            Logger::error("Failed to start program " + requestedProgram + " after " +
+                          std::to_string(max_retries) + " attempts.");
 
             if (getServiceInstanceCount(requestedProgram) == 0) {
                 updateServiceState(requestedProgram, ProcessState::FATAL);
