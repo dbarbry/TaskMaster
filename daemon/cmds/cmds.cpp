@@ -3,6 +3,11 @@
 extern std::map<std::string, int> active_programs;
 std::map<std::string, int>        attached_fds;
 
+std::string start(std::vector<std::string> words) {
+    words.clear();
+    return "start command";
+}
+
 std::string status(std::vector<std::string> words) {
     words.clear();
     return "status command";

@@ -1,5 +1,4 @@
 #include "../cmds/service_state.hpp"
-#include <pty.h>
 #include "launch.hpp"
 
 std::map<std::string, int> active_programs;
@@ -199,7 +198,6 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
             pid = waitpid(*it, &status, WNOHANG);
 
             if (pid > 0) {
-                // Processus terminé
                 int exitCode = 0;
                 if (WIFEXITED(status)) {
                     exitCode = WEXITSTATUS(status);
@@ -207,16 +205,13 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                 } else if (WIFSIGNALED(status)) {
                     int signal = WTERMSIG(status);
                     std::cout << "[PID " << pid << "] killed by signal: " << signal << std::endl;
-                    exitCode = 128 + signal;  // Convention pour les signaux
+                    exitCode = 128 + signal; 
                 }
 
-                // Mettre à jour l'état du service
                 if (pidToService.count(pid) > 0) {
                     std::string serviceName = pidToService[pid];
 
-                    // Nettoyage du PTY associé à ce processus
                     {
-                        // std::lock_guard<std::mutex> lock(serviceMutex);
                         if (active_programs.count(serviceName) > 0) {
                             close(active_programs[serviceName]);
                             active_programs.erase(serviceName);

@@ -1,6 +1,8 @@
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 
+#include "../../logger.hpp"
 #include "../cmds.hpp"
 #include "../service_state.hpp"
 
@@ -23,10 +25,9 @@ std::string getStateString(ProcessState state) {
 
 void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
                    const std::map<std::string, ProgramConfig>&            programs) {
-    std::cout << "=== Services Status ===" << std::endl;
-
+    
     if (runningServices.empty()) {
-        std::cout << "No services are currently registered." << std::endl;
+        Logger::info("No services are currently registered.");
         return;
     }
 
@@ -34,9 +35,10 @@ void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
         cleanupOldProcesses(name);
     }
 
-    std::cout << std::left << std::setw(35) << "NAME" << std::setw(12) << "STATUS" << std::setw(30)
-              << "INFO" << std::endl;
-    std::cout << std::string(77, '-') << std::endl;
+    std::stringstream header;
+    header << std::left << std::setw(35) << "NAME" << std::setw(12) << "STATUS" << std::setw(30) << "INFO";
+    Logger::info(header.str());
+    Logger::info(std::string(77, '-'));
 
     for (const auto& [name, info] : runningServices) {
         int running = 0, stopped = 0, failed = 0;
@@ -50,25 +52,25 @@ void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
                 failed++;
         }
 
-        std::cout << std::left << std::setw(35) << name;
+        std::stringstream line;
+        line << std::left << std::setw(35) << name;
 
         if (running > 0) {
-            std::cout << std::setw(12) << "RUNNING";
-            std::cout << running << " instance(s), ";
-            std::cout << stopped << " stopped, " << failed << " failed";
+            line << std::setw(12) << "RUNNING";
+            line << running << " instance(s), ";
+            line << stopped << " stopped, " << failed << " failed";
         } else if (failed > 0) {
-            std::cout << std::setw(12) << "FATAL";
-            std::cout << "all processes have failed";
+            line << std::setw(12) << "FATAL";
+            line << "all processes have failed";
         } else {
-            std::cout << std::setw(12) << "STOPPED";
-            std::cout << "no processes running";
+            line << std::setw(12) << "STOPPED";
+            line << "no processes running";
         }
-        std::cout << std::endl;
+        Logger::info(line.str());
 
         for (const auto& proc : info.processes) {
             if (proc.state == ProcessState::RUNNING) {
-                std::cout << "  └─ pid " << proc.pid << ", running";
-                std::cout << std::endl;
+                Logger::info("  └─ pid " + std::to_string(proc.pid) + ", running");
             }
         }
     }
