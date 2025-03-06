@@ -1,4 +1,5 @@
 #include "main.hpp"
+#include "logger.hpp" 
 
 #define LOG_PATH "/home/dhaya/taskmaster/log"
 #define SOCKET_PATH "/tmp/taskmaster_socket"
@@ -14,13 +15,13 @@ void daemonize(void) {
 
     pid = fork();
     if (pid < 0) {
-        perror("fork failed");
+        Logger::error("fork failed: " + std::string(strerror(errno)));
         exit(1);
     }
     if (pid > 0) exit(0);
 
     if (setsid() < 0) {
-        perror("setsid failed");
+        Logger::error("setsid failed: " + std::string(strerror(errno)));
         exit(1);
     }
 
@@ -29,7 +30,7 @@ void daemonize(void) {
 
     pid = fork();
     if (pid < 0) {
-        perror("fork failed");
+        Logger::error("fork failed: " + std::string(strerror(errno)));
         exit(1);
     }
     if (pid > 0) {
@@ -39,7 +40,7 @@ void daemonize(void) {
     umask(0);
 
     if (chdir("/") < 0) {
-        perror("chdir failed");
+        Logger::error("chdir failed: " + std::string(strerror(errno)));
         exit(1);
     }
 
@@ -70,14 +71,14 @@ void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramCo
         read_len = read(client_fd, buffer, BUFFER_SIZE - 1);
 
         if (read_len < 0) {
-            perror("read failed");
+            Logger::error("read failed: " + std::string(strerror(errno)));
             break;
         }
         if (!read_len) {
-            std::cout << "Client disconnected" << std::endl;
+            Logger::info("Client disconnected");
             break;
         }
-        std::cout << "[DEBUG] Received: " << buffer;
+        Logger::debug("Received: " + std::string(buffer));
         std::map<std::string, std::vector<std::string>> parsedCommand = commandParsing(buffer);
         std::string                                     clean_buffer(buffer);
         std::string                                     response =
@@ -85,7 +86,7 @@ void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramCo
 
         if (!response.empty()) {
             if (write(client_fd, response.c_str(), response.size()) <= 0) {
-                perror("write failed");
+                Logger::error("write failed: " + std::string(strerror(errno)));
                 break;
             }
         }
@@ -99,7 +100,7 @@ void run_server(std::map<std::string, ProgramConfig> programs) {
     struct sockaddr_un address;
 
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-        perror("socket failed");
+        Logger::error("socket failed: " + std::string(strerror(errno)));
         exit(1);
     }
 
@@ -110,21 +111,24 @@ void run_server(std::map<std::string, ProgramConfig> programs) {
     strncpy(address.sun_path, SOCKET_PATH, sizeof(address.sun_path) - 1);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
+        Logger::error("bind failed: " + std::string(strerror(errno)));
         exit(EXIT_FAILURE);
     }
     chmod(SOCKET_PATH, 0777);
 
     if (listen(server_fd, 5) < 0) {
-        perror("listen failed");
+        Logger::error("listen failed: " + std::string(strerror(errno)));
         exit(EXIT_FAILURE);
     }
 
+    Logger::info("Server started, waiting for connections");
+
     while (true) {
         if ((client_fd = accept(server_fd, 0, 0)) < 0) {
-            perror("accept failed");
+            Logger::error("accept failed: " + std::string(strerror(errno)));
             continue;
         }
+        Logger::info("Client connected");
         handle_client(client_fd, server_fd, programs);
     }
 
@@ -136,15 +140,15 @@ int check_file(std::string filename) {
     std::ifstream file(filename);
 
     if (filename.size() < 5 || filename.substr(filename.size() - 5) != ".conf") {
-        std::cout << "Must be a .conf extension file." << std::endl;
+        Logger::error("Must be a .conf extension file");
         return 1;
     }
     if (!std::filesystem::exists(filename)) {
-        std::cout << filename << " file doesn't exist." << std::endl;
+        Logger::error(filename + " file doesn't exist");
         return 1;
     }
     if (!file.is_open()) {
-        std::cout << "Can't open: " << filename << std::endl;
+        Logger::error("Can't open: " + filename);
         return 1;
     }
 
@@ -153,12 +157,12 @@ int check_file(std::string filename) {
 
 int main(int ac, char **av) {
     if (ac != 2 || check_file(av[1])) {
-        std::cerr << "Usage: ./daemon.out <file.conf>" << std::endl;
-        std::cerr << "Or   :  make server <file.conf>" << std::endl;
+        Logger::error("Usage: ./daemon.out <file.conf>");
+        Logger::error("Or   :  make server <file.conf>");
         return 1;
     }
 
-    std::cout << ".conf : " << av[1] << std::endl;
+    Logger::info(".conf : " + std::string(av[1]));
     std::map<std::string, ProgramConfig> programs = parsing(av[1]);
     log_config(programs);
     std::thread program_thread(exec_programs, programs);
