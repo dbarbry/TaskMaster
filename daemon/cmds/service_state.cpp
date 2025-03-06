@@ -1,15 +1,13 @@
 #include "service_state.hpp"
 
 #include <algorithm>
-#include <iostream>
 
 #include "../launch/launch.hpp"
-
+#include "../logger.hpp"
 std::map<std::string, ServiceInfo> runningServices;
 std::mutex                         serviceMutex;
 
 bool addServicePid(const std::string& name, pid_t pid) {
-
     auto& processes = runningServices[name].processes;
     for (const auto& process : processes) {
         if (process.pid == pid) {
@@ -30,7 +28,7 @@ bool addServicePid(const std::string& name, pid_t pid) {
         runningServices[name].name = name;
     }
 
-    std::cout << "[PID] Added PID " << pid << " to service " << name << std::endl;
+    Logger::info(name + ": added process " + std::to_string(pid));
     return true;
 }
 
@@ -46,21 +44,18 @@ void incrementRetries(const std::string& name) {
         for (auto& process : runningServices[name].processes) {
             process.retries++;
         }
-        std::cout << "[RETRY] Incremented retry count for service " << name << std::endl;
+        Logger::info(name + ": incremented retry count");
     }
 }
 
 bool removeServicePid(const std::string& name, pid_t pid) {
-
     if (runningServices.count(name) == 0) return false;
 
     auto& processes = runningServices[name].processes;
     for (auto it = processes.begin(); it != processes.end(); ++it) {
         if (it->pid == pid) {
             it->state = ProcessState::STOPPED;
-            std::cout << "[PID] Process " << pid << " of service " << name << " marked as STOPPED"
-                      << std::endl;
-
+            Logger::info(name + ": removed process " + std::to_string(pid));
             return true;
         }
     }
@@ -87,28 +82,29 @@ void updateServiceState(const std::string& name, ProcessState state) {
     runningServices[name].overallState = state;
 
     // Log de changement d'état
-    std::cout << "[STATE] Service " << name << " state changed to ";
+    std::string stateStr;
     switch (state) {
         case ProcessState::STARTING:
-            std::cout << "STARTING";
+            stateStr = "STARTING";
             break;
         case ProcessState::RUNNING:
-            std::cout << "RUNNING";
+            stateStr = "RUNNING";
             break;
         case ProcessState::RESTARTING:
-            std::cout << "RESTARTING";
+            stateStr = "RESTARTING";
             break;
         case ProcessState::STOPPED:
-            std::cout << "STOPPED";
+            stateStr = "STOPPED";
             break;
         case ProcessState::FATAL:
-            std::cout << "FATAL";
+            stateStr = "FATAL";
             break;
         default:
-            std::cout << "UNKNOWN";
+            stateStr = "UNKNOWN";
             break;
     }
-    std::cout << std::endl;
+
+    Logger::info(name + ": state changed to " + stateStr);
 }
 
 // Ajouter une nouvelle fonction pour mettre à jour l'état d'un processus spécifique
@@ -158,7 +154,6 @@ void cleanupOldProcesses(const std::string& name, size_t maxStoppedToKeep) {
             processes.erase(processes.begin() + stoppedIndices[i]);
         }
 
-        std::cout << "[CLEANUP] Removed " << toRemove << " old stopped processes from " << name
-                  << std::endl;
+        Logger::info(name + ": removed " + std::to_string(toRemove) + " old stopped processes");
     }
 }

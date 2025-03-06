@@ -14,8 +14,23 @@ std::string status(std::vector<std::string> words) {
 }
 
 std::string restart(std::vector<std::string> words) {
-    words.clear();
-    return "restart command";
+    std::ostringstream response;
+
+    words.erase(words.begin());
+
+    if (words.empty()) {
+        response << "Redémarrage de tous les programmes...";
+    } else {
+        response << "Redémarrage des programmes : ";
+        for (size_t i = 0; i < words.size(); ++i) {
+            response << words[i];
+            if (i < words.size() - 1) {
+                response << ", ";
+            }
+        }
+    }
+
+    return response.str();
 }
 
 std::string reload(std::vector<std::string> words) {
@@ -55,9 +70,10 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
     } else if (command == "stop") {
         stopCommand(parsedCommand, programs);
         response << "stop command";
-    } else if (command == "restart")
+    } else if (command == "restart") {
+        restartCommand(parsedCommand, programs);
         response << restart(words);
-    else if (command == "reload")
+    } else if (command == "reload")
         response << reload(words);
     else if (command == "shutdown")
         response << shutdown(words, server_fd);

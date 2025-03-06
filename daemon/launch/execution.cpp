@@ -1,4 +1,5 @@
 #include "../cmds/service_state.hpp"
+#include "../logger.hpp"
 #include "launch.hpp"
 
 std::map<std::string, int> active_programs;
@@ -94,8 +95,8 @@ void redirect_output(int pty_fd, const std::string &stdout_file, const std::stri
     int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
     int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
-    if (stdout_fd < 0) std::cerr << "stdout logging file failed to open." << std::endl;
-    if (stderr_fd < 0) std::cerr << "stderr logging file failed to open." << std::endl;
+    if (stdout_fd < 0) Logger::error("stdout logging file failed to open.");
+    if (stderr_fd < 0) Logger::error("stderr logging file failed to open.");
 
     if (stdout_fd >= 0) {
         dup2(stdout_fd, STDOUT_FILENO);
@@ -115,24 +116,24 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
     int                                  master_fd, slave_fd;
 
     if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {
-        std::cerr << "Failed to create PTY for: " << name << std::endl;
+        Logger::error("Failed to create PTY for: " + name);
         return -1;
     }
 
     pid = fork();
     if (pid < 0) {
-        std::cerr << "Fork failed for: " << name << std::endl;
+        Logger::error("Fork failed for: " + name);
         return -1;
     }
     if (pid == 0) {
-        std::cout << "Launching: " << name << " (" << config.getCmd() << ")" << std::endl;
+        Logger::info("Launching: " + name + " (" + config.getCmd() + ")");
 
         close(master_fd);
         setsid();
         ioctl(slave_fd, TIOCSCTTY, 0);
 
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
-            std::cerr << "Failed to change directory to " << config.getWorkingDir() << std::endl;
+            Logger::error("Failed to change directory to " + config.getWorkingDir());
             _exit(1);
         }
 
@@ -143,30 +144,31 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         parse_command(config.getCmd(), storage, av);
 
         if (av.empty()) {
-            std::cerr << "Empty command for: " << name << std::endl;
+            Logger::error("Empty command for: " + name);
             _exit(1);
         }
 
-        std::cout << "[PID " << getpid() << "] Executing: " << av[0] << std::endl;
+        Logger::info("[PID " + std::to_string(getpid()) + "] Executing: " + std::string(av[0]));
         execvpe_compat(av[0], av.data(), envp.data());
-        std ::cout << "[PID " << getpid() << "] Executing: " << av[0] << av.data() << std::endl;
 
         int err = errno;
-        std::cerr << "Execution failed for: " << config.getCmd() << " (Error: " << strerror(err)
-                  << ")\n";
+        Logger::error("Execution failed for: " + config.getCmd() + " (Error: " + strerror(err) +
+                      ")");
         _exit(1);
     }
+
     close(slave_fd);
     {
         // std::lock_guard<std::mutex> lock(serviceMutex);
         if (active_programs.count(name) > 0) {
-            std::cout << "[PTY] Closing previous PTY for " << name << std::endl;
+            Logger::info("[PTY] Closing previous PTY for " + name);
             close(active_programs[name]);
             active_programs.erase(name);
         }
     }
-    std::cout << "[SERVER] Storing PTY FD for: " << name << " (FD: " << master_fd << ")"
-              << std::endl;
+
+    Logger::info("[SERVER] Storing PTY FD for: " + name + " (FD: " + std::to_string(master_fd) +
+                 ")");
     active_programs[name] = master_fd;
 
     return pid;
@@ -188,7 +190,7 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
         }
     }
 
-    std::cout << "[MONITOR] Started monitoring " << pids->size() << " processes" << std::endl;
+    Logger::info("[MONITOR] Started monitoring " + std::to_string(pids->size()) + " processes");
 
     while (!pids->empty()) {
         int   status;
@@ -201,11 +203,13 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                 int exitCode = 0;
                 if (WIFEXITED(status)) {
                     exitCode = WEXITSTATUS(status);
-                    std::cout << "[PID " << pid << "] exited with code: " << exitCode << std::endl;
+                    Logger::info("[PID " + std::to_string(pid) +
+                                 "] exited with code: " + std::to_string(exitCode));
                 } else if (WIFSIGNALED(status)) {
                     int signal = WTERMSIG(status);
-                    std::cout << "[PID " << pid << "] killed by signal: " << signal << std::endl;
-                    exitCode = 128 + signal; 
+                    Logger::info("[PID " + std::to_string(pid) +
+                                 "] killed by signal: " + std::to_string(signal));
+                    exitCode = 128 + signal;
                 }
 
                 if (pidToService.count(pid) > 0) {
@@ -215,21 +219,20 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                         if (active_programs.count(serviceName) > 0) {
                             close(active_programs[serviceName]);
                             active_programs.erase(serviceName);
-                            std::cout << "[PTY] Closed PTY for service: " << serviceName
-                                      << std::endl;
+                            Logger::info("[PTY] Closed PTY for service: " + serviceName);
                         }
                     }
 
                     updateProcessState(serviceName, pid, ProcessState::STOPPED, exitCode);
-                    std::cout << "[MONITOR] Service " << serviceName << " has "
-                              << getServiceInstanceCount(serviceName) << " instances remaining"
-                              << std::endl;
+                    Logger::info("[MONITOR] Service " + serviceName + " has " +
+                                 std::to_string(getServiceInstanceCount(serviceName)) +
+                                 " instances remaining");
                 }
 
                 it = pids->erase(it);
             } else if (pid < 0 && errno != EINTR) {
                 // Erreur avec waitpid
-                std::cerr << "[MONITOR] Error in waitpid: " << strerror(errno) << std::endl;
+                Logger::error("[MONITOR] Error in waitpid: " + std::string(strerror(errno)));
                 it = pids->erase(it);
             } else {
                 ++it;
@@ -238,7 +241,7 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    std::cout << "[MONITOR] Monitoring thread finished" << std::endl;
+    Logger::info("[MONITOR] Monitoring thread finished");
 }
 
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
