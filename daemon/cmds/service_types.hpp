@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <ctime>
+#include <string>
 
 enum class ProcessState {
     STARTING,
