@@ -42,7 +42,7 @@ class TaskmasterConfig {
     int                                minfds   = 1024;
     int                                minprocs = 200;
     std::optional<std::string>         user;
-    std::string                        directory = "/";
+    std::optional<std::string>         directory;
     std::map<std::string, std::string> environment;
 
     // for the two privates values
@@ -76,7 +76,7 @@ static bool is_comment_or_empty(const std::string &line) {
 
 static std::map<std::string, std::string> parse_environment(const std::string &line) {
     std::map<std::string, std::string> env_map;
-    std::regex                         env_regex(R"(([^=]+)="([^"]*)");
+    std::regex                         env_regex(R"(([^=]+)=\"([^\"]*)\")");
     auto begin = std::sregex_iterator(line.begin(), line.end(), env_regex);
     auto end   = std::sregex_iterator();
 
@@ -118,6 +118,21 @@ static void parse_chown(const std::string &chown_str, std::optional<uid_t> &uid_
     }
 }
 
+int parse_integer(const std::string &value, const std::string &field_name) {
+    try {
+        int intValue = std::stoi(value);
+        return intValue;
+    } catch (const std::invalid_argument &e) {
+        Logger::error("Error parsing '" + field_name + "' with value '" + value +
+                      "': Invalid integer format.");
+        throw std::runtime_error("Invalid integer format for '" + field_name + "': " + value);
+    } catch (const std::out_of_range &e) {
+        Logger::error("Error parsing '" + field_name + "' with value '" + value +
+                      "': Integer value out of range.");
+        throw std::runtime_error("Integer value out of range for '" + field_name + "': " + value);
+    }
+}
+
 }  // namespace config_parser
 
 namespace config_validator {
@@ -141,8 +156,9 @@ void validate_minfds(int value) {
 }
 
 void validate_minprocs(int value) {
-    if (value < 0) throw std::runtime_error("minprocs must be non-negative");
     struct rlimit limit;
+
+    if (value < 0) throw std::runtime_error("minprocs must be non-negative");
     if (getrlimit(RLIMIT_NPROC, &limit) != 0)
         throw std::runtime_error("Failed to get RLIMIT_NPROC");
 
@@ -157,15 +173,27 @@ void validate_minprocs(int value) {
 }  // namespace config_validator
 
 TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
-    TaskmasterConfig     config;
-    std::ifstream        file(filepath);
-    std::string          line;
-    std::string          current_section;
-    std::string          lower_key;
-    std::optional<uid_t> uid;
-    std::optional<gid_t> gid;
+    TaskmasterConfig      config;
+    std::ifstream         file(filepath);
+    std::string           line;
+    std::string           current_section;
+    std::string           lower_key;
+    std::optional<uid_t>  uid;
+    std::optional<gid_t>  gid;
+    std::filesystem::path config_dir;
 
     if (!file.is_open()) throw std::runtime_error("Unable to open config file: " + filepath);
+
+    config_dir           = std::filesystem::absolute(std::filesystem::path(filepath)).parent_path();
+    auto substitute_here = [&](const std::string &val) -> std::string {
+        std::string result = val;
+        size_t      pos    = 0;
+        while ((pos = result.find("%(here)s", pos)) != std::string::npos) {
+            result.replace(pos, 8, config_dir.string());
+            pos += config_dir.string().size();
+        }
+        return result;
+    };
 
     while (std::getline(file, line)) {
         line = config_parser::trim(line);
@@ -211,16 +239,23 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
             else if (lower_key == "silent")
                 config.silent = (value == "true");
             else if (lower_key == "minfds") {
-                config.minfds = std::stoi(value);
+                config.minfds = config_parser::parse_integer(lower_key, "minfds");
                 config_validator::validate_minfds(config.minfds);
             } else if (lower_key == "minprocs") {
-                config.minprocs = std::stoi(value);
+                config.minprocs = config_parser::parse_integer(lower_key, "minprocs");
                 config_validator::validate_minprocs(config.minprocs);
-            } else if (lower_key == "user")
+            } else if (lower_key == "user") {
+                if (geteuid() != 0)
+                    throw std::runtime_error(
+                        "The 'user' directive may only be used when running as root.");
                 config.user = value;
-            else if (lower_key == "directory")
+            } else if (lower_key == "directory") {
+                std::filesystem::path dir_path(value);
+                if (!std::filesystem::exists(dir_path) || !std::filesystem::is_directory(dir_path))
+                    throw std::runtime_error(
+                        "Invalid directory: does not exist or is not a directory: " + value);
                 config.directory = value;
-            else if (lower_key == "environment")
+            } else if (lower_key == "environment")
                 config.environment = config_parser::parse_environment(value);
         }
     }
