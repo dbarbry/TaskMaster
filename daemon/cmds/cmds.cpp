@@ -61,18 +61,13 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
 
     const std::string &command = words[0];
     if (command == "status") {
-        response << status(words);
-        statusCommand(parsedCommand, programs);
-    } else if (command == "start") {
-        response << start(words);
-        startCommand(parsedCommand, programs);
-        response << "start command";
+        response << statusCommand(parsedCommand, programs);
+    } else if (command == "start") {        
+        response << startCommand(parsedCommand, programs);
     } else if (command == "stop") {
-        stopCommand(parsedCommand, programs);
-        response << "stop command";
+        response << stopCommand(parsedCommand, programs);
     } else if (command == "restart") {
-        restartCommand(parsedCommand, programs);
-        response << restart(words);
+        response << restartCommand(parsedCommand, programs);
     } else if (command == "reload")
         response << reload(words);
     else if (command == "shutdown")
