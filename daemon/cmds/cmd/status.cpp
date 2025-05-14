@@ -23,11 +23,14 @@ std::string getStateString(ProcessState state) {
     }
 }
 
-void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
-                   const std::map<std::string, ProgramConfig>&            programs) {
+std::string statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
+                         const std::map<std::string, ProgramConfig>&            programs) {
+    std::ostringstream response;
+    
     if (runningServices.empty()) {
         Logger::info("No services are currently registered.");
-        return;
+        response << "No services are currently registered." << std::endl;
+        return response.str();
     }
 
     for (const auto& [name, _] : runningServices) {
@@ -37,8 +40,15 @@ void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
     std::stringstream header;
     header << std::left << std::setw(35) << "NAME" << std::setw(12) << "STATUS" << std::setw(30)
            << "INFO";
-    Logger::info(header.str());
-    Logger::info(std::string(77, '-'));
+    
+    std::string headerStr = header.str();
+    std::string separator = std::string(77, '-');
+    
+    Logger::info(headerStr);
+    Logger::info(separator);
+    
+    response << headerStr << std::endl;
+    response << separator << std::endl;
 
     for (const auto& [name, info] : runningServices) {
         int running = 0, stopped = 0, failed = 0;
@@ -66,12 +76,19 @@ void statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
             line << std::setw(12) << "STOPPED";
             line << "no processes running";
         }
-        Logger::info(line.str());
+        
+        std::string lineStr = line.str();
+        Logger::info(lineStr);
+        response << lineStr << std::endl;
 
         for (const auto& proc : info.processes) {
             if (proc.state == ProcessState::RUNNING) {
-                Logger::info("  └─ pid " + std::to_string(proc.pid) + ", running");
+                std::string procInfo = "  └─ pid " + std::to_string(proc.pid) + ", running";
+                Logger::info(procInfo);
+                response << procInfo << std::endl;
             }
         }
     }
+    
+    return response.str();
 }
