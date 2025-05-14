@@ -34,16 +34,16 @@
 class ProgramConfig {
    private:
     std::string                        cmd;
-    int                                numprocs = -1;
+    int                                numprocs = 1;
     std::string                        umask    = "022";
     std::string                        workingdir;
-    bool                               autostart   = false;
+    bool                               autostart   = true;
     std::string                        autorestart = "unexpected";
-    std::vector<int>                   exitcodes;
-    int                                startretries = -1;
-    int                                starttime    = -1;
+    std::vector<int>                   exitcodes = {0, 2};
+    int                                startretries = 3;
+    int                                starttime    = 1;
     std::string                        stopsignal   = "TERM";
-    int                                stoptime     = -1;
+    int                                stoptime     = 10;
     std::string                        stdout_file  = "/dev/null";
     std::string                        stderr_file  = "/dev/null";
     std::map<std::string, std::string> env;
@@ -118,46 +118,6 @@ class ProgramConfig {
             std::cerr << "Erreur: workingdir est obligatoire." << std::endl;
             valid = false;
         }
-
-        if (numprocs == -1) {
-            std::cerr << "Avertissement: numprocs non défini, valeur par défaut = 1" << std::endl;
-            numprocs = 1;
-        } else if (numprocs <= 0) {
-            std::cerr << "Avertissement: numprocs invalide, valeur par défaut = 1" << std::endl;
-            numprocs = 1;
-        }
-
-        if (startretries == -1) {
-            std::cerr << "Avertissement: startretries non défini, valeur par défaut = 3"
-                      << std::endl;
-            startretries = 3;
-        } else if (startretries <= 0) {
-            std::cerr << "Avertissement: startretries invalide, valeur par défaut = 3" << std::endl;
-            startretries = 3;
-        }
-
-        if (starttime == -1) {
-            std::cerr << "Avertissement: starttime non défini, valeur par défaut = 1" << std::endl;
-            starttime = 1;
-        } else if (starttime <= 0) {
-            std::cerr << "Avertissement: starttime invalide, valeur par défaut = 1" << std::endl;
-            starttime = 1;
-        }
-
-        if (stoptime == -1) {
-            std::cerr << "Avertissement: stoptime non défini, valeur par défaut = 10" << std::endl;
-            stoptime = 10;
-        } else if (stoptime <= 0) {
-            std::cerr << "Avertissement: stoptime invalide, valeur par défaut = 10" << std::endl;
-            stoptime = 10;
-        }
-
-        if (exitcodes.empty()) {
-            std::cerr << "Avertissement: exitcodes non défini, valeur par défaut = {0, 2}"
-                      << std::endl;
-            exitcodes = {0, 2};
-        }
-
         if (env.empty()) {
             std::cerr << "Avertissement: Aucun environnement défini." << std::endl;
         }
