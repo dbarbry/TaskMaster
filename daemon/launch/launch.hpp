@@ -14,7 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../cmds/service_types.hpp"  // Inclure les types communs
+#include "../cmds/service_types.hpp"
 // Supprimer l'inclusion de service_state.hpp pour éviter le cycle
 // #include "./cmds/service_state.hpp"
 
@@ -26,74 +26,157 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
+
+enum class EAutorestart {
+    ALWAYS,    // "true"
+    NEVER,     // "false"
+    UNEXPECTED // "unexpected"
+};
+
+enum class EStopsignal {
+    TERM,
+    HUP,
+    INT,
+    QUIT,
+    KILL,
+    USR1,
+    USR2
+};
+
+// Fonctions utilitaires pour la conversion entre enum et string
+inline std::string autorestart_to_string(EAutorestart value) {
+    switch (value) {
+        case EAutorestart::ALWAYS:
+            return "true";
+        case EAutorestart::NEVER:
+            return "false";
+        case EAutorestart::UNEXPECTED:
+            return "unexpected";
+        default:
+            return "unexpected";
+    }
+}
+
+inline EAutorestart string_to_autorestart(const std::string& value) {
+    if (value == "true" || value == "always")
+        return EAutorestart::ALWAYS;
+    else if (value == "false" || value == "never")
+        return EAutorestart::NEVER;
+    else
+        return EAutorestart::UNEXPECTED;
+}
+
+inline std::string stopsignal_to_string(EStopsignal value) {
+    switch (value) {
+        case EStopsignal::TERM:
+            return "TERM";
+        case EStopsignal::HUP:
+            return "HUP";
+        case EStopsignal::INT:
+            return "INT";
+        case EStopsignal::QUIT:
+            return "QUIT";
+        case EStopsignal::KILL:
+            return "KILL";
+        case EStopsignal::USR1:
+            return "USR1";
+        case EStopsignal::USR2:
+            return "USR2";
+        default:
+            return "TERM";
+    }
+}
+
+inline EStopsignal string_to_stopsignal(const std::string& value) {
+    if (value == "HUP")
+        return EStopsignal::HUP;
+    else if (value == "INT")
+        return EStopsignal::INT;
+    else if (value == "QUIT")
+        return EStopsignal::QUIT;
+    else if (value == "KILL")
+        return EStopsignal::KILL;
+    else if (value == "USR1")
+        return EStopsignal::USR1;
+    else if (value == "USR2")
+        return EStopsignal::USR2;
+    else
+        return EStopsignal::TERM;
+}
+
 class ProgramConfig {
    private:
-    std::string                        cmd;
+    std::string                        command;
     int                                numprocs = 1;
-    std::string                        umask    = "022";
+    std::optional<std::string>         umask;
     std::string                        workingdir;
     bool                               autostart   = true;
-    std::string                        autorestart = "unexpected";
-    std::vector<int>                   exitcodes = {0, 2};
+    EAutorestart                       autorestart = EAutorestart::UNEXPECTED;
+    std::vector<int>                   exitcodes = {0};  // Changé à {0} pour suivre Supervisor 4.0+
     int                                startretries = 3;
-    int                                starttime    = 1;
-    std::string                        stopsignal   = "TERM";
-    int                                stoptime     = 10;
-    std::string                        stdout_file  = "/dev/null";
-    std::string                        stderr_file  = "/dev/null";
-    std::map<std::string, std::string> env;
+    int                                startsecs    = 1;
+    EStopsignal                        stopsignal   = EStopsignal::TERM;
+    int                                stopwaitsecs = 10;
+    std::string                        stdout_logfile = "/dev/null";
+    std::string                        stderr_logfile = "/dev/null";
+    std::map<std::string, std::string> environment;
 
    public:
     // Getters
-    std::string                               getCmd() const { return cmd; }
+    std::string                               getCommand() const { return command; }
     int                                       getNumprocs() const { return numprocs; }
-    std::string                               getUmask() const { return umask; }
+    std::string                               getUmask() const { return umask.value_or("022"); }
     std::string                               getWorkingDir() const { return workingdir; }
     bool                                      getAutostart() const { return autostart; }
-    std::string                               getAutorestart() const { return autorestart; }
+    EAutorestart                              getAutorestart() const { return autorestart; }
+    std::string                               getAutorerestartString() const { return autorestart_to_string(autorestart); }
     const std::vector<int>&                   getExitcodes() const { return exitcodes; }
     int                                       getStartretries() const { return startretries; }
-    int                                       getStarttime() const { return starttime; }
-    std::string                               getStopsignal() const { return stopsignal; }
-    int                                       getStoptime() const { return stoptime; }
-    std::string                               getStdoutFile() const { return stdout_file; }
-    std::string                               getStderrFile() const { return stderr_file; }
-    const std::map<std::string, std::string>& getEnv() const { return env; }
+    int                                       getStartsecs() const { return startsecs; }
+    EStopsignal                               getStopsignal() const { return stopsignal; }
+    std::string                               getStopsignalString() const { return stopsignal_to_string(stopsignal); }
+    int                                       getStopwaitsecs() const { return stopwaitsecs; }
+    std::string                               getStdoutLogfile() const { return stdout_logfile; }
+    std::string                               getStderrLogfile() const { return stderr_logfile; }
+    const std::map<std::string, std::string>& getEnvironment() const { return environment; }
 
     // Setters
-    void setCmd(const std::string& value) { cmd = value; }
+    void setCommand(const std::string& value) { command = value; }
     void setNumprocs(int value) { numprocs = value; }
     void setUmask(const std::string& value) { umask = value; }
     void setWorkingDir(const std::string& value) { workingdir = value; }
     void setAutostart(bool value) { autostart = value; }
-    void setAutorestart(const std::string& value) { autorestart = value; }
+    void setAutorestart(EAutorestart value) { autorestart = value; }
+    void setAutorestart(const std::string& value) { autorestart = string_to_autorestart(value); }
     void setExitcodes(const std::vector<int>& value) { exitcodes = value; }
     void setStartretries(int value) { startretries = value; }
-    void setStarttime(int value) { starttime = value; }
-    void setStopsignal(const std::string& value) { stopsignal = value; }
-    void setStoptime(int value) { stoptime = value; }
-    void setStdoutFile(const std::string& value) { stdout_file = value; }
-    void setStderrFile(const std::string& value) { stderr_file = value; }
-    void setEnv(const std::map<std::string, std::string>& value) { env = value; }
+    void setStartsecs(int value) { startsecs = value; }
+    void setStopsignal(EStopsignal value) { stopsignal = value; }
+    void setStopsignal(const std::string& value) { stopsignal = string_to_stopsignal(value); }
+    void setStopwaitsecs(int value) { stopwaitsecs = value; }
+    void setStdoutLogfile(const std::string& value) { stdout_logfile = value; }
+    void setStderrLogfile(const std::string& value) { stderr_logfile = value; }
+    void setEnvironment(const std::map<std::string, std::string>& value) { environment = value; }
 
     void logConfig() const {
-        std::cout << "cmd: " << getCmd() << std::endl;
+        std::cout << "command: " << getCommand() << std::endl;
         std::cout << "numprocs: " << getNumprocs() << std::endl;
         std::cout << "umask: " << getUmask() << std::endl;
         std::cout << "workingdir: " << getWorkingDir() << std::endl;
         std::cout << "autostart: " << (getAutostart() ? "true" : "false") << std::endl;
-        std::cout << "autorestart: " << getAutorestart() << std::endl;
+        std::cout << "autorestart: " << getAutorerestartString() << std::endl;
         std::cout << "startretries: " << getStartretries() << std::endl;
-        std::cout << "starttime: " << getStarttime() << std::endl;
-        std::cout << "stopsignal: " << getStopsignal() << std::endl;
-        std::cout << "stoptime: " << getStoptime() << std::endl;
-        std::cout << "stdout_file: " << getStdoutFile() << std::endl;
-        std::cout << "stderr_file: " << getStderrFile() << std::endl;
+        std::cout << "startsecs: " << getStartsecs() << std::endl;
+        std::cout << "stopsignal: " << getStopsignalString() << std::endl;
+        std::cout << "stopwaitsecs: " << getStopwaitsecs() << std::endl;
+        std::cout << "stdout_logfile: " << getStdoutLogfile() << std::endl;
+        std::cout << "stderr_logfile: " << getStderrLogfile() << std::endl;
 
         std::cout << "exitcodes: ";
         for (const auto& exitcode : getExitcodes()) {
@@ -101,8 +184,8 @@ class ProgramConfig {
         }
         std::cout << std::endl;
 
-        std::cout << "env: " << std::endl;
-        for (const auto& env : getEnv()) {
+        std::cout << "environment: " << std::endl;
+        for (const auto& env : getEnvironment()) {
             std::cout << "  " << env.first << "=" << env.second << std::endl;
         }
     }
@@ -110,7 +193,7 @@ class ProgramConfig {
     bool isValid() {
         bool valid = true;
 
-        if (cmd.empty()) {
+        if (command.empty()) {
             std::cerr << "Erreur: command est obligatoire." << std::endl;
             valid = false;
         }
@@ -118,7 +201,7 @@ class ProgramConfig {
             std::cerr << "Erreur: workingdir est obligatoire." << std::endl;
             valid = false;
         }
-        if (env.empty()) {
+        if (environment.empty()) {
             std::cerr << "Avertissement: Aucun environnement défini." << std::endl;
         }
 
@@ -127,9 +210,10 @@ class ProgramConfig {
 };
 
 void exec_programs(const std::map<std::string, ProgramConfig>& programs);
-void log_config(const std::map<std::string, ProgramConfig>& programs);
+void log_config(const std::map<std::string, ProgramConfig>& config);
+void setup_signal_handlers();
+pid_t launch_program(const std::string &name, const ProgramConfig &config);
 std::map<std::string, ProgramConfig> parsing(std::string filename);
-pid_t launch_program(const std::string& name, const ProgramConfig& config);
-void  setup_signal_handlers();
 
-#endif
+
+#endif // LAUNCH_HPP

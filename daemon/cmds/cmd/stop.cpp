@@ -31,7 +31,7 @@ void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
     }
 
     const ProgramConfig &config      = it->second;
-    std::string          signalName  = config.getStopsignal();
+    std::string          signalName = config.getStopsignalString();
     int                  signalValue = SIGTERM;
 
     // Convertir le nom du signal en valeur numérique
@@ -69,7 +69,7 @@ void stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
         }
     }
 
-    int stoptime = config.getStoptime();
+    int stoptime = config.getStopwaitsecs();
     Logger::info(requestedProgram + ": waiting up to " + std::to_string(stoptime) +
                  " seconds for processes to terminate");
 
