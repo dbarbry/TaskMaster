@@ -1,58 +1,4 @@
-#include <grp.h>
-#include <pwd.h>
-#include <sys/resource.h>
-#include <unistd.h>
-
-#include <algorithm>
-#include <cctype>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <optional>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-
-#include "logger.hpp"
-#include "main.hpp"
-
-class TaskmasterConfig {
-   public:
-    // [unix_http_server] section
-    std::string                file  = "/tmp/taskmaster_socket";
-    mode_t                     chmod = 0700;
-    std::optional<std::string> chown;
-
-   private:
-    // if chown not set, we take current user privileges (not in taskmasterd.conf file)
-    std::optional<uid_t> socket_uid;
-    std::optional<gid_t> socket_gid;
-
-   public:
-    // [supervisord] section
-    std::string                        logfile  = "/tmp/taskmaster.log";
-    mode_t                             umask    = 022;
-    bool                               nodaemon = false;
-    bool                               silent   = false;
-    int                                minfds   = 1024;
-    int                                minprocs = 200;
-    std::optional<std::string>         user;
-    std::optional<std::string>         directory;
-    std::map<std::string, std::string> environment;
-
-    // for the two privates values
-    std::optional<uid_t> get_socket_uid() const { return socket_uid; }
-    std::optional<gid_t> get_socket_gid() const { return socket_gid; }
-
-    void set_socket_uid_gid(uid_t uid, gid_t gid) {
-        if (uid == 0 && getuid() != 0)
-            throw std::runtime_error("Only root can assign socket UID 0 (root)");
-        socket_uid = uid;
-        socket_gid = gid;
-    }
-};
+#include "config_global.hpp"
 
 namespace utils {
 
@@ -185,8 +131,7 @@ namespace config_validator {
  * @return The validated absolute path.
  * @throws std::runtime_error if the path is not absolute.
  */
-std::filesystem::path config_validator::validate_path(const std::string &value,
-                                                      const std::string &field_name) {
+std::filesystem::path validate_path(const std::string &value, const std::string &field_name) {
     std::filesystem::path path(value);
 
     if (!path.is_absolute()) {
@@ -205,8 +150,7 @@ std::filesystem::path config_validator::validate_path(const std::string &value,
  * @return The validated directory path.
  * @throws std::runtime_error if the path is not absolute or not a directory.
  */
-std::filesystem::path config_validator::validate_dir(const std::string &value,
-                                                     const std::string &field_name) {
+std::filesystem::path validate_dir(const std::string &value, const std::string &field_name) {
     std::filesystem::path path = validate_path(value, field_name);
 
     if (!std::filesystem::exists(path) || !std::filesystem::is_directory(path)) {
@@ -225,8 +169,8 @@ std::filesystem::path config_validator::validate_dir(const std::string &value,
  * @return The validated file path.
  * @throws std::runtime_error if the path is not absolute or not a regular file.
  */
-std::filesystem::path config_validator::validate_file_exists(const std::string &value,
-                                                             const std::string &field_name) {
+std::filesystem::path validate_file_exists(const std::string &value,
+                                           const std::string &field_name) {
     std::filesystem::path path = validate_path(value, field_name);
 
     if (!std::filesystem::exists(path) || !std::filesystem::is_regular_file(path)) {
@@ -456,6 +400,7 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
         }
     }
 }
+
 /**
  * @brief Parses the [supervisord] section of the configuration file.
  *
@@ -472,7 +417,7 @@ void parse_supervisord(TaskmasterConfig &config, const ConfigSection &section) {
         std::string lower_key = utils::to_lower_copy(key);
 
         if (lower_key == "logfile")
-            config.logfile = value;
+            config.logfile = config_validator::validate_path(value, lower_key);
         else if (lower_key == "umask")
             config.umask = config_validator::validate_octal(value, lower_key);
         else if (lower_key == "nodaemon")
@@ -488,13 +433,26 @@ void parse_supervisord(TaskmasterConfig &config, const ConfigSection &section) {
         } else if (lower_key == "user")
             config.user = config_validator::validate_user_field(value, lower_key);
         else if (lower_key == "directory") {
-            std::filesystem::path dir_path(value);
-            if (!std::filesystem::exists(dir_path) || !std::filesystem::is_directory(dir_path))
-                throw std::runtime_error(
-                    "Invalid directory: does not exist or is not a directory: " + value);
-            config.directory = value;
+            config.directory = config_validator::validate_path(value, lower_key);
         } else if (lower_key == "environment")
             config.environment = config_parser::parse_environment(value);
+    }
+}
+
+/**
+ * @brief Parses the [include] section of the configuration file.
+ *
+ * Extracts and validates the `files` directive, which specifies the absolute
+ * path to a directory containing additional `.conf` files.
+ *
+ * @param config Reference to the TaskmasterConfig structure to populate.
+ * @param section The parsed key-value pairs from the [include] section.
+ */
+void parse_include(TaskmasterConfig &config, const ConfigSection &section) {
+    for (const auto &[key, value] : section.key_values) {
+        std::string lower_key = utils::to_lower_copy(key);
+
+        if (lower_key == "files") config.files = config_validator::validate_path(value, lower_key);
     }
 }
 
@@ -541,6 +499,8 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
             parse_unix_http_server(config, section);
         else if (section_name == "supervisord")
             parse_supervisord(config, section);
+        else if (section_name == "include")
+            parse_include(config, section);
         else
             Logger::warn("Unknown section [" + section_name + "] is ignored.");
     }
