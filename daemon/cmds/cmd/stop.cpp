@@ -38,7 +38,7 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
     }
 
     const ProgramConfig &config      = it->second;
-    std::string          signalName  = config.getStopsignal();
+    std::string          signalName = config.getStopsignalString();
     int                  signalValue = SIGTERM;
 
     if (signalName == "TERM")
@@ -78,12 +78,9 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
             response << errorMsg << std::endl;
         }
     }
-
-    int stoptime = config.getStoptime();
-    std::string waitMsg = requestedProgram + ": waiting up to " + std::to_string(stoptime) +
-                 " seconds for processes to terminate";
-    Logger::info(waitMsg);
-    response << waitMsg << std::endl;
+    int stoptime = config.getStopwaitsecs();
+    Logger::info(requestedProgram + ": waiting up to " + std::to_string(stoptime) +
+                 " seconds for processes to terminate");
 
     time_t start_time = time(nullptr);
     while (!pidsToStop.empty() && (time(nullptr) - start_time) < stoptime) {

@@ -1,6 +1,9 @@
 #include "../cmds/service_state.hpp"
 #include "../logger.hpp"
 #include "launch.hpp"
+#include <sys/stat.h> 
+#include <unistd.h>    
+#include <stdlib.h>    
 
 std::map<std::string, int> active_programs;
 volatile sig_atomic_t      child_exited = 0;
@@ -40,6 +43,7 @@ int execvpe_compat(const char *file, char *const argv[], char *const envp[]) {
 
 void parse_command(const std::string &cmd, std::vector<std::unique_ptr<char[]>> &storage,
                    std::vector<char *> &av) {
+    // Fonction inchangée
     storage.clear();
     av.clear();
 
@@ -126,22 +130,30 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         return -1;
     }
     if (pid == 0) {
-        Logger::info("Launching: " + name + " (" + config.getCmd() + ")");
+        // Code exécuté dans le processus enfant
+        Logger::info("Launching: " + name + " (" + config.getCommand() + ")");
 
         close(master_fd);
         setsid();
         ioctl(slave_fd, TIOCSCTTY, 0);
 
+        // Configuration de l'umask avant tout
+        mode_t mask = strtol(config.getUmask().c_str(), nullptr, 8);
+        umask(mask);
+
+        // Changement de répertoire de travail
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
             Logger::error("Failed to change directory to " + config.getWorkingDir());
             _exit(1);
         }
 
-        redirect_output(slave_fd, config.getStdoutFile(), config.getStderrFile());
+        // Redirection des sorties standard
+        redirect_output(slave_fd, config.getStdoutLogfile(), config.getStderrLogfile());
         close(slave_fd);
 
-        set_environment(config.getEnv(), env_storage, envp);
-        parse_command(config.getCmd(), storage, av);
+        // Configuration de l'environnement et de la commande
+        set_environment(config.getEnvironment(), env_storage, envp);
+        parse_command(config.getCommand(), storage, av);
 
         if (av.empty()) {
             Logger::error("Empty command for: " + name);
@@ -152,7 +164,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         execvpe_compat(av[0], av.data(), envp.data());
 
         int err = errno;
-        Logger::error("Execution failed for: " + config.getCmd() + " (Error: " + strerror(err) +
+        Logger::error("Execution failed for: " + config.getCommand() + " (Error: " + strerror(err) +
                       ")");
         _exit(1);
     }
@@ -175,7 +187,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 }
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
-    // Map pour associer les PIDs aux noms de services et configurations
+    // Fonction inchangée car elle n'utilise pas directement les méthodes renommées
     std::map<pid_t, std::string>                 pidToService;
     std::map<std::string, const ProgramConfig *> serviceConfig;
 
@@ -257,10 +269,12 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
             pid_t pid;
             while (retries < max_retries) {
                 pid = launch_program(name, config);
-                if (pid < 0) break;
-                break;
+                if (pid > 0) break;
+                retries++;
             }
-            pids->push_back(pid);
+            if (pid > 0) {
+                pids->push_back(pid);
+            }
         }
     }
 
