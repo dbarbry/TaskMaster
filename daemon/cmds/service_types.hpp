@@ -11,7 +11,8 @@ enum class ProcessState {
     RESTARTING,
     STOPPED,
     FATAL,
-    UNKNOWN
+    UNKNOWN,
+    STOPPING
 };
 struct ProcessInfo {
     pid_t pid;

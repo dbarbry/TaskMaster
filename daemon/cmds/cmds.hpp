@@ -18,6 +18,7 @@
 #include "../cmds/service_types.hpp"
 #include "../launch/launch.hpp"
 #include "./service_state.hpp"
+#include "../main.hpp"
 
 std::string restartCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                     const std::map<std::string, ProgramConfig>            &programs);
@@ -36,6 +37,9 @@ std::string attachCommand(std::vector<std::string> words, int client_fd);
 
 std::string statusCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                    const std::map<std::string, ProgramConfig>            &programs);
+
+std::string updateCommand(const std::map<std::string, std::vector<std::string>> &cmd,
+                         std::map<std::string, ProgramConfig> &programs);
 bool isAlreadyRunning(const std::string &programPath);
 
 #endif

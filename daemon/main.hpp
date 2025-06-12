@@ -20,4 +20,7 @@
 #include "cmds/cmds.hpp"
 #include "launch/launch.hpp"
 
+const std::string& getConfigPath();
+
+
 #endif
