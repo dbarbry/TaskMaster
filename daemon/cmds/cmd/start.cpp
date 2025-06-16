@@ -10,14 +10,14 @@
 
 #include "../../logger.hpp"
 #include "../cmds.hpp"
-#include "launch/launch.hpp"
+#include "launch/config_program.hpp"
 
 extern std::map<std::string, ServiceInfo> runningServices;
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids);
 
 std::string startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
-                        const std::map<std::string, ProgramConfig> &programs) {
+                         const std::map<std::string, ProgramConfig>            &programs) {
     Logger::info("Starting command logic");
     std::ostringstream response;
 
@@ -33,18 +33,20 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     auto it = programs.find(requestedProgram);
     if (it == programs.end()) {
         Logger::error("Program " + requestedProgram + " not found in configuration.");
-        response << "Error: Program " + requestedProgram + " not found in configuration." << std::endl;
+        response << "Error: Program " + requestedProgram + " not found in configuration."
+                 << std::endl;
         return response.str();
     }
-    
+
     const ProgramConfig &configFromFile = it->second;
-    int maxInstances = configFromFile.getNumprocs();
+    int                  maxInstances   = configFromFile.numprocs;
 
     if (getServiceInstanceCount(requestedProgram) >= static_cast<size_t>(maxInstances)) {
         Logger::error("The program " + requestedProgram + " already has " +
                       std::to_string(maxInstances) + " instance(s) running!");
         response << "Error: The program " + requestedProgram + " already has " +
-                 std::to_string(maxInstances) + " instance(s) running!" << std::endl;
+                        std::to_string(maxInstances) + " instance(s) running!"
+                 << std::endl;
         return response.str();
     }
 
@@ -55,13 +57,13 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     updateServiceState(requestedProgram, ProcessState::STARTING);
     response << "Starting program: " << requestedProgram << std::endl;
 
-    const int max_retries = configFromFile.getStartretries();
-    int remaining_instances = maxInstances - getServiceInstanceCount(requestedProgram);
-    int successful_starts = 0;
+    const int max_retries         = configFromFile.startretries;
+    int       remaining_instances = maxInstances - getServiceInstanceCount(requestedProgram);
+    int       successful_starts   = 0;
 
     for (int i = 0; i < remaining_instances; i++) {
-        int retries = 0;
-        pid_t pid = -1;
+        int   retries = 0;
+        pid_t pid     = -1;
 
         while (retries < max_retries) {
             pid = launch_program(requestedProgram, configFromFile);
@@ -74,17 +76,18 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
             pids->push_back(pid);
             addServicePid(requestedProgram, pid);
             updateServiceState(requestedProgram, ProcessState::RUNNING);
-            
-            Logger::info("Started program " + requestedProgram + " with PID " + 
-                        std::to_string(pid));
-            response << "Started program " + requestedProgram + " with PID " + 
-                     std::to_string(pid) << std::endl;
+
+            Logger::info("Started program " + requestedProgram + " with PID " +
+                         std::to_string(pid));
+            response << "Started program " + requestedProgram + " with PID " + std::to_string(pid)
+                     << std::endl;
             successful_starts++;
         } else {
             Logger::error("Failed to start program " + requestedProgram + " after " +
-                         std::to_string(max_retries) + " attempts.");
+                          std::to_string(max_retries) + " attempts.");
             response << "Failed to start program " + requestedProgram + " after " +
-                     std::to_string(max_retries) + " attempts." << std::endl;
+                            std::to_string(max_retries) + " attempts."
+                     << std::endl;
 
             if (getServiceInstanceCount(requestedProgram) == 0) {
                 updateServiceState(requestedProgram, ProcessState::FATAL);
@@ -96,12 +99,12 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     if (!pids->empty()) {
         std::thread monitor_thread(monitoring, pids);
         monitor_thread.detach();
-        
+
         if (successful_starts == remaining_instances) {
-            response << "All " << successful_starts << " instance(s) of " << requestedProgram 
+            response << "All " << successful_starts << " instance(s) of " << requestedProgram
                      << " started successfully." << std::endl;
         } else {
-            response << successful_starts << " of " << remaining_instances 
+            response << successful_starts << " of " << remaining_instances
                      << " instance(s) started successfully." << std::endl;
         }
     } else {

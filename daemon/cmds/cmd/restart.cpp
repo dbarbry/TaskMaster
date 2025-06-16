@@ -8,9 +8,9 @@
 #include "../cmds.hpp"
 
 std::string restartCommand(const std::map<std::string, std::vector<std::string>> &cmd,
-                    const std::map<std::string, ProgramConfig>            &programs) {
+                           const std::map<std::string, ProgramConfig>            &programs) {
     std::ostringstream response;
-    
+
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to restart.");
         response << "Error: No program specified to restart." << std::endl;
@@ -47,6 +47,6 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
 
     Logger::info(programToRestart + ": started");
     response << programToRestart + ": started" << std::endl;
-    
+
     return response.str();
 }

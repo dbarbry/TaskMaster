@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "config_program.hpp"
 #include "logger.hpp"
 
 class TaskmasterConfig {
@@ -46,10 +47,15 @@ class TaskmasterConfig {
     // [include] section
     std::string files = "/etc/supervisor/conf.d/*.conf";
 
-    // for the two privates values
+    // [programs] and global datas
+    std::map<std::string, ProgramConfig> programs;
+    std::vector<std::string>             files_saved;
+
+    // private data
     std::optional<uid_t> get_socket_uid() const { return socket_uid; }
     std::optional<gid_t> get_socket_gid() const { return socket_gid; }
 
+   public:
     void set_socket_uid_gid(uid_t uid, gid_t gid) {
         if (uid == 0 && getuid() != 0)
             throw std::runtime_error("Only root can assign socket UID 0 (root)");
@@ -60,4 +66,4 @@ class TaskmasterConfig {
 
 TaskmasterConfig parse_taskmaster_conf(const std::string &filepath);
 
-#endif
+#endif  // CONFIG_HPP
