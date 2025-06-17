@@ -1,11 +1,3 @@
-#include <signal.h>
-
-#include <chrono>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <thread>
-
 #include "../../logger.hpp"
 #include "../cmds.hpp"
 #include "../service_state.hpp"

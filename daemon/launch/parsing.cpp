@@ -115,15 +115,15 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
             try {
                 // Configuration options
                 if (key == "cmd") {
-                    current_config.setCommand(value);
+                    current_config.command = value;
                 } else if (key == "numprocs") {
-                    current_config.setNumprocs(std::stoi(value));
+                    current_config.numprocs = std::stoi(value);
                 } else if (key == "umask") {
-                    current_config.setUmask(value);
+                    current_config.umask = value;
                 } else if (key == "workingdir") {
-                    current_config.setWorkingDir(value);
+                    current_config.workingdir = value;
                 } else if (key == "autostart") {
-                    current_config.setAutostart(value == "true");
+                    current_config.autostart = (value == "true");
                 } else if (key == "autorestart") {
                     current_config.setAutorestart(value);
                 } else if (key == "exitcodes") {
@@ -134,21 +134,21 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                     while (std::getline(ss, temp, ' ')) {
                         exitcodes.push_back(std::stoi(temp));
                     }
-                    current_config.setExitcodes(exitcodes);
+                    current_config.exitcodes = exitcodes;
                 } else if (key == "startretries") {
-                    current_config.setStartretries(std::stoi(value));
+                    current_config.startretries = std::stoi(value);
                 } else if (key == "starttime" || key == "startsecs") {  // Support both names
-                    current_config.setStartsecs(std::stoi(value));
+                    current_config.startsecs = std::stoi(value);
                 } else if (key == "stopsignal") {
                     current_config.setStopsignal(value);
                 } else if (key == "stoptime" || key == "stopwaitsecs") {  // Support both names
-                    current_config.setStopwaitsecs(std::stoi(value));
+                    current_config.stopwaitsecs = std::stoi(value);
                 } else if (key == "stdout" || key == "stdout_logfile") {  // Support both names
-                    current_config.setStdoutLogfile(value);
+                    current_config.stdout_logfile = value;
                 } else if (key == "stderr" || key == "stderr_logfile") {  // Support both names
-                    current_config.setStderrLogfile(value);
+                    current_config.stderr_logfile = value;
                 } else if (key == "env" || key == "environment") {  // Support both names
-                    current_config.setEnvironment(parse_environment(value));
+                    current_config.environment = parse_environment(value);
                 } else {
                     std::cerr << "Unknown configuration key: " << key << std::endl;
                 }
