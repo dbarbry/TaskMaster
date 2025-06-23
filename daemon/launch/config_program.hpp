@@ -100,7 +100,7 @@ inline EStopsignal string_to_stopsignal(const std::string& value) {
 }
 
 class ProgramConfig {
-   public:
+   private:
     std::string                        command;
     int                                numprocs = 1;
     std::optional<std::string>         umask;
@@ -118,13 +118,40 @@ class ProgramConfig {
 
    public:
     // Getters
-    std::string getUmask() const { return umask.value_or("022"); }
-    std::string getAutorerestartString() const { return autorestart_to_string(autorestart); }
-    std::string getStopsignalString() const { return stopsignal_to_string(stopsignal); }
+    std::string  getCommand() const { return command; }
+    int          getNumprocs() const { return numprocs; }
+    std::string  getUmask() const { return umask.value_or("022"); }
+    std::string  getWorkingDir() const { return workingdir; }
+    bool         getAutostart() const { return autostart; }
+    EAutorestart getAutorestart() const { return autorestart; }
+    std::string  getAutorerestartString() const { return autorestart_to_string(autorestart); }
+    const std::vector<int>& getExitcodes() const { return exitcodes; }
+    int                     getStartretries() const { return startretries; }
+    int                     getStartsecs() const { return startsecs; }
+    EStopsignal             getStopsignal() const { return stopsignal; }
+    std::string             getStopsignalString() const { return stopsignal_to_string(stopsignal); }
+    int                     getStopwaitsecs() const { return stopwaitsecs; }
+    std::string             getStdoutLogfile() const { return stdout_logfile; }
+    std::string             getStderrLogfile() const { return stderr_logfile; }
+    const std::map<std::string, std::string>& getEnvironment() const { return environment; }
 
     // Setters
+    void setCommand(const std::string& value) { command = value; }
+    void setNumprocs(int value) { numprocs = value; }
+    void setUmask(const std::string& value) { umask = value; }
+    void setWorkingDir(const std::string& value) { workingdir = value; }
+    void setAutostart(bool value) { autostart = value; }
+    void setAutorestart(EAutorestart value) { autorestart = value; }
     void setAutorestart(const std::string& value) { autorestart = string_to_autorestart(value); }
+    void setExitcodes(const std::vector<int>& value) { exitcodes = value; }
+    void setStartretries(int value) { startretries = value; }
+    void setStartsecs(int value) { startsecs = value; }
+    void setStopsignal(EStopsignal value) { stopsignal = value; }
     void setStopsignal(const std::string& value) { stopsignal = string_to_stopsignal(value); }
+    void setStopwaitsecs(int value) { stopwaitsecs = value; }
+    void setStdoutLogfile(const std::string& value) { stdout_logfile = value; }
+    void setStderrLogfile(const std::string& value) { stderr_logfile = value; }
+    void setEnvironment(const std::map<std::string, std::string>& value) { environment = value; }
 
     void logConfig() const {
         std::cout << "command: " << command << std::endl;

@@ -52,7 +52,7 @@ std::vector<std::string> expand_glob(const std::string &pattern) {
  * @param input The input string to convert.
  * @return A new string where all alphabetic characters are lowercase.
  */
-static std::string to_lower_copy(const std::string &input) {
+std::string to_lower_copy(const std::string &input) {
     std::string result = input;
 
     std::transform(result.begin(), result.end(), result.begin(), ::tolower);

@@ -132,7 +132,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
     }
     if (pid == 0) {
         // Code exécuté dans le processus enfant
-        Logger::info("Launching: " + name + " (" + config.command + ")");
+        Logger::info("Launching: " + name + " (" + config.getCommand() + ")");
 
         close(master_fd);
         setsid();
@@ -143,18 +143,18 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         umask(mask);
 
         // Changement de répertoire de travail
-        if (!config.workingdir.empty() && chdir(config.workingdir.c_str()) != 0) {
-            Logger::error("Failed to change directory to " + config.workingdir);
+        if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
+            Logger::error("Failed to change directory to " + config.getWorkingDir());
             _exit(1);
         }
 
         // Redirection des sorties standard
-        redirect_output(slave_fd, config.stdout_logfile, config.stderr_logfile);
+        redirect_output(slave_fd, config.getStdoutLogfile(), config.getStderrLogfile());
         close(slave_fd);
 
         // Configuration de l'environnement et de la commande
-        set_environment(config.environment, env_storage, envp);
-        parse_command(config.command, storage, av);
+        set_environment(config.getEnvironment(), env_storage, envp);
+        parse_command(config.getCommand(), storage, av);
 
         if (av.empty()) {
             Logger::error("Empty command for: " + name);
@@ -165,7 +165,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         execvpe_compat(av[0], av.data(), envp.data());
 
         int err = errno;
-        Logger::error("Execution failed for: " + config.command + " (Error: " + strerror(err) +
+        Logger::error("Execution failed for: " + config.getCommand() + " (Error: " + strerror(err) +
                       ")");
         _exit(1);
     }
@@ -262,8 +262,8 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
 
     setup_signal_handlers();
     for (const auto &[name, config] : programs) {
-        const int max_retries   = config.startretries;
-        int       nbr_instances = config.numprocs;
+        const int max_retries   = config.getStartretries();
+        int       nbr_instances = config.getNumprocs();
 
         for (int i = 0; i < nbr_instances; i++) {
             int   retries = 0;

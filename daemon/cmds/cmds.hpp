@@ -31,7 +31,7 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
 
 std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
                        std::map<std::string, std::vector<std::string>> parsedCommand,
-                       std::map<std::string, ProgramConfig>            programs);
+                       TaskmasterConfig                               &config);
 
 std::map<std::string, std::vector<std::string>> commandParsing(std::string cmd);
 
@@ -44,6 +44,7 @@ std::string attachCommand(std::vector<std::string> words, int client_fd);
 std::string statusCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                           const std::map<std::string, ProgramConfig>            &programs);
 std::string rereadCommand(TaskmasterConfig &config);
+std::string updateCommand(TaskmasterConfig &config);
 bool        isAlreadyRunning(const std::string &programPath);
 
 #endif  // UTILS_HPP

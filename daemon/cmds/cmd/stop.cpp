@@ -70,7 +70,7 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
             response << errorMsg << std::endl;
         }
     }
-    int stoptime = config.stopwaitsecs;
+    int stoptime = config.getStopwaitsecs();
     Logger::info(requestedProgram + ": waiting up to " + std::to_string(stoptime) +
                  " seconds for processes to terminate");
 

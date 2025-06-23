@@ -20,4 +20,6 @@
 #include "cmds/cmds.hpp"
 #include "launch/config_program.hpp"
 
+void run_server(TaskmasterConfig& config);
+
 #endif  // MAIN_HPP

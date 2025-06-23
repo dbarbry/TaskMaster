@@ -29,7 +29,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     }
 
     const ProgramConfig &configFromFile = it->second;
-    int                  maxInstances   = configFromFile.numprocs;
+    int                  maxInstances   = configFromFile.getNumprocs();
 
     if (getServiceInstanceCount(requestedProgram) >= static_cast<size_t>(maxInstances)) {
         Logger::error("The program " + requestedProgram + " already has " +
@@ -47,7 +47,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     updateServiceState(requestedProgram, ProcessState::STARTING);
     response << "Starting program: " << requestedProgram << std::endl;
 
-    const int max_retries         = configFromFile.startretries;
+    const int max_retries         = configFromFile.getStartretries();
     int       remaining_instances = maxInstances - getServiceInstanceCount(requestedProgram);
     int       successful_starts   = 0;
 
