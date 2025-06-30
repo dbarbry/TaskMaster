@@ -121,7 +121,7 @@ void startNewProgram(const std::string& name, const ProgramConfig& config, std::
 /**
  * @brief Updates the configuration by reloading the config file and applying changes
  */
-std::string updateCommand(const std::map<std::string, std::vector<std::string>> &cmd,
+std::string reloadCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                          std::map<std::string, ProgramConfig> &programs) {
     // ... le reste de votre fonction updateCommand reste identique
 }
