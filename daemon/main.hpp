@@ -18,9 +18,9 @@
 #include <thread>
 
 #include "cmds/cmds.hpp"
-#include "launch/launch.hpp"
+#include "launch/config_program.hpp"
 
 const std::string& getConfigPath();
+void run_server(TaskmasterConfig& config);
 
-
-#endif
+#endif  // MAIN_HPP

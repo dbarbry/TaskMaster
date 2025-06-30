@@ -62,7 +62,7 @@ void daemonize(void) {
     close(log_fd);
 }
 
-void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramConfig> programs) {
+void handle_client(int client_fd, int server_fd, TaskmasterConfig &config) {
     char    buffer[BUFFER_SIZE];
     ssize_t read_len;
 
@@ -82,7 +82,7 @@ void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramCo
         std::map<std::string, std::vector<std::string>> parsedCommand = commandParsing(buffer);
         std::string                                     clean_buffer(buffer);
         std::string                                     response =
-            handle_cmd(clean_buffer, server_fd, client_fd, parsedCommand, programs);
+            handle_cmd(clean_buffer, server_fd, client_fd, parsedCommand, config);
 
         if (!response.empty()) {
             if (write(client_fd, response.c_str(), response.size()) <= 0) {
@@ -95,7 +95,7 @@ void handle_client(int client_fd, int server_fd, std::map<std::string, ProgramCo
     close(client_fd);
 }
 
-void run_server(std::map<std::string, ProgramConfig> programs) {
+void run_server(TaskmasterConfig &config) {
     int                server_fd, client_fd;
     struct sockaddr_un address;
 
@@ -129,7 +129,7 @@ void run_server(std::map<std::string, ProgramConfig> programs) {
             continue;
         }
         Logger::info("Client connected");
-        handle_client(client_fd, server_fd, programs);
+        handle_client(client_fd, server_fd, config);
     }
 
     close(server_fd);

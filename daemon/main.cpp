@@ -49,14 +49,23 @@ int main(int ac, char **av) {
         return 1;
     }
 
-    // std::map<std::string, ProgramConfig> programs = parsing(av[1]);
-    // log_config(programs);
-    // std::thread program_thread(exec_programs, programs);
+    // first load after config is done
+    try {
+        rereadCommand(config);
+        updateCommand(config);
+        Logger::info("Included config files processed.");
+    } catch (const std::exception &e) {
+        Logger::error("Error during reread/update: " + std::string(e.what()));
+        return 1;
+    }
+
+    log_config(config.programs);
+    std::thread program_thread(exec_programs, config.programs);
 
     // daemonize();
-    // run_server(programs);
+    run_server(config);
 
-    // program_thread.join();
+    program_thread.join();
 
     return 0;
 }

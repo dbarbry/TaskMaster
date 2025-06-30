@@ -46,7 +46,7 @@ std::string shutdown(std::vector<std::string> words, int server_fd) {
 
 std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
                        std::map<std::string, std::vector<std::string>> parsedCommand,
-                       std::map<std::string, ProgramConfig>            programs) {
+                       TaskmasterConfig&                               config) {
     std::istringstream       iss(cmd);
     std::vector<std::string> words;
     std::string              word;
@@ -59,15 +59,19 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
         return response.str();
     }
 
-    const std::string &command = words[0];
-    if (command == "status") {
-        response << statusCommand(parsedCommand, programs);
-    } else if (command == "start") {        
-        response << startCommand(parsedCommand, programs);
+    const std::string& command = words[0];
+    if (command == "reread") {
+        response << rereadCommand(config);
+    } else if (command == "update") {
+        response << updateCommand(config);
+    } else if (command == "status") {
+        response << statusCommand(parsedCommand, config.programs);
+    } else if (command == "start") {
+        response << startCommand(parsedCommand, config.programs);
     } else if (command == "stop") {
-        response << stopCommand(parsedCommand, programs);
+        response << stopCommand(parsedCommand, config.programs);
     } else if (command == "restart") {
-        response << restartCommand(parsedCommand, programs);
+        response << restartCommand(parsedCommand, config.programs);
     } else if (command == "reload")
         response << reload(words);
     else if (command == "shutdown")

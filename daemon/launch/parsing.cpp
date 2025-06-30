@@ -1,9 +1,10 @@
-#include "launch.hpp"
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <algorithm>
+
+#include "./config_program.hpp"
 
 /**
  * @brief Parse une ligne de configuration au format "clé=valeur"
@@ -17,7 +18,7 @@ std::optional<std::pair<std::string, std::string>> parse_config_line(const std::
         return std::nullopt;
     }
 
-    std::string key = line.substr(0, delimiter_pos);
+    std::string key   = line.substr(0, delimiter_pos);
     std::string value = line.substr(delimiter_pos + 1);
 
     // Trim whitespace
@@ -37,14 +38,14 @@ std::optional<std::pair<std::string, std::string>> parse_config_line(const std::
  * @return Une map des variables d'environnement
  */
 std::map<std::string, std::string> parse_environment(const std::string& value) {
-    std::stringstream ss(value);
-    std::string env_pair;
+    std::stringstream                  ss(value);
+    std::string                        env_pair;
     std::map<std::string, std::string> env_map;
 
     while (std::getline(ss, env_pair, ' ')) {
         size_t equal_pos = env_pair.find('=');
         if (equal_pos != std::string::npos) {
-            std::string env_key = env_pair.substr(0, equal_pos);
+            std::string env_key   = env_pair.substr(0, equal_pos);
             std::string env_value = env_pair.substr(equal_pos + 1);
 
             // Enlever les guillemets si présents
@@ -65,9 +66,9 @@ std::map<std::string, std::string> parse_environment(const std::string& value) {
  */
 std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
     std::map<std::string, ProgramConfig> programs;
-    std::ifstream file(filepath);
-    std::string line;
-    std::string current_section;
+    std::ifstream                        file(filepath);
+    std::string                          line;
+    std::string                          current_section;
 
     if (!file.is_open()) {
         std::cerr << "Failed to open config file: " << filepath << std::endl;
@@ -99,8 +100,8 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 continue;
             }
             current_section = line.substr(1, end_pos - 1);
-            current_config = ProgramConfig();
-        } 
+            current_config  = ProgramConfig();
+        }
         // Handle key=value pairs
         else {
             auto kv_pair = parse_config_line(line);
@@ -108,69 +109,53 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 continue;
             }
 
-            const std::string& key = kv_pair->first;
+            const std::string& key   = kv_pair->first;
             const std::string& value = kv_pair->second;
 
             try {
                 // Configuration options
                 if (key == "cmd") {
                     current_config.setCommand(value);
-                } 
-                else if (key == "numprocs") {
+                } else if (key == "numprocs") {
                     current_config.setNumprocs(std::stoi(value));
-                } 
-                else if (key == "umask") {
+                } else if (key == "umask") {
                     current_config.setUmask(value);
-                } 
-                else if (key == "workingdir") {
+                } else if (key == "workingdir") {
                     current_config.setWorkingDir(value);
-                } 
-                else if (key == "autostart") {
+                } else if (key == "autostart") {
                     current_config.setAutostart(value == "true");
-                } 
-                else if (key == "autorestart") {
+                } else if (key == "autorestart") {
                     current_config.setAutorestart(value);
-                } 
-                else if (key == "exitcodes") {
+                } else if (key == "exitcodes") {
                     std::stringstream ss(value);
-                    std::string temp;
-                    std::vector<int> exitcodes;
-                    
+                    std::string       temp;
+                    std::vector<int>  exitcodes;
+
                     while (std::getline(ss, temp, ' ')) {
                         exitcodes.push_back(std::stoi(temp));
                     }
                     current_config.setExitcodes(exitcodes);
-                } 
-                else if (key == "startretries") {
+                } else if (key == "startretries") {
                     current_config.setStartretries(std::stoi(value));
-                } 
-                else if (key == "starttime" || key == "startsecs") {  // Support both names
+                } else if (key == "starttime" || key == "startsecs") {  // Support both names
                     current_config.setStartsecs(std::stoi(value));
-                } 
-                else if (key == "stopsignal") {
+                } else if (key == "stopsignal") {
                     current_config.setStopsignal(value);
-                } 
-                else if (key == "stoptime" || key == "stopwaitsecs") {  // Support both names
+                } else if (key == "stoptime" || key == "stopwaitsecs") {  // Support both names
                     current_config.setStopwaitsecs(std::stoi(value));
-                } 
-                else if (key == "stdout" || key == "stdout_logfile") {  // Support both names
+                } else if (key == "stdout" || key == "stdout_logfile") {  // Support both names
                     current_config.setStdoutLogfile(value);
-                } 
-                else if (key == "stderr" || key == "stderr_logfile") {  // Support both names
+                } else if (key == "stderr" || key == "stderr_logfile") {  // Support both names
                     current_config.setStderrLogfile(value);
-                } 
-                else if (key == "env" || key == "environment") {  // Support both names
+                } else if (key == "env" || key == "environment") {  // Support both names
                     current_config.setEnvironment(parse_environment(value));
-                }
-                else {
+                } else {
                     std::cerr << "Unknown configuration key: " << key << std::endl;
                 }
-            }
-            catch (const std::invalid_argument& e) {
-                std::cerr << "Invalid value for " << key << ": " << value 
-                          << " (" << e.what() << ")" << std::endl;
-            }
-            catch (const std::exception& e) {
+            } catch (const std::invalid_argument& e) {
+                std::cerr << "Invalid value for " << key << ": " << value << " (" << e.what() << ")"
+                          << std::endl;
+            } catch (const std::exception& e) {
                 std::cerr << "Error processing key " << key << ": " << e.what() << std::endl;
             }
         }
@@ -207,7 +192,7 @@ std::map<std::string, ProgramConfig> parsing(std::string filename) {
     // Filtrer les configurations invalides
     for (auto it = programs.begin(); it != programs.end();) {
         if (!it->second.isValid()) {
-            std::cerr << "Invalid configuration for service: " << it->first << ". Service skipped." 
+            std::cerr << "Invalid configuration for service: " << it->first << ". Service skipped."
                       << std::endl;
             it = programs.erase(it);
         } else {

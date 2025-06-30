@@ -1,7 +1,3 @@
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-
 #include "../../logger.hpp"
 #include "../cmds.hpp"
 #include "../service_state.hpp"
@@ -24,9 +20,9 @@ std::string getStateString(ProcessState state) {
 }
 
 std::string statusCommand(const std::map<std::string, std::vector<std::string>>& cmd,
-                         const std::map<std::string, ProgramConfig>&            programs) {
+                          const std::map<std::string, ProgramConfig>&            programs) {
     std::ostringstream response;
-    
+
     if (runningServices.empty()) {
         Logger::info("No services are currently registered.");
         response << "No services are currently registered." << std::endl;
@@ -40,13 +36,13 @@ std::string statusCommand(const std::map<std::string, std::vector<std::string>>&
     std::stringstream header;
     header << std::left << std::setw(35) << "NAME" << std::setw(12) << "STATUS" << std::setw(30)
            << "INFO";
-    
+
     std::string headerStr = header.str();
     std::string separator = std::string(77, '-');
-    
+
     Logger::info(headerStr);
     Logger::info(separator);
-    
+
     response << headerStr << std::endl;
     response << separator << std::endl;
 
@@ -76,7 +72,7 @@ std::string statusCommand(const std::map<std::string, std::vector<std::string>>&
             line << std::setw(12) << "STOPPED";
             line << "no processes running";
         }
-        
+
         std::string lineStr = line.str();
         Logger::info(lineStr);
         response << lineStr << std::endl;
@@ -89,6 +85,6 @@ std::string statusCommand(const std::map<std::string, std::vector<std::string>>&
             }
         }
     }
-    
+
     return response.str();
 }
