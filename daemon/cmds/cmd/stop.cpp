@@ -1,20 +1,12 @@
-#include <signal.h>
-
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <thread>
-#include <chrono>
-
 #include "../../logger.hpp"
 #include "../cmds.hpp"
 #include "../service_state.hpp"
 
 std::string stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
-                 const std::map<std::string, ProgramConfig>            &programs) {
+                        const std::map<std::string, ProgramConfig>            &programs) {
     Logger::info("Stop command logic");
     std::ostringstream response;
-    
+
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to stop.");
         response << "Error: No program specified to stop." << std::endl;
@@ -23,7 +15,7 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
 
     std::string requestedProgram = cmd.at("args")[0];
     Logger::debug("Requested program to stop: " + requestedProgram);
-    
+
     if (!isServiceRunning(requestedProgram)) {
         Logger::error(requestedProgram + ": not running");
         response << requestedProgram + ": not running" << std::endl;
@@ -38,7 +30,7 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
     }
 
     const ProgramConfig &config      = it->second;
-    std::string          signalName = config.getStopsignalString();
+    std::string          signalName  = config.getStopsignalString();
     int                  signalValue = SIGTERM;
 
     if (signalName == "TERM")
@@ -70,10 +62,10 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
     for (pid_t pid : pidsToStop) {
         Logger::info(requestedProgram + ": sending signal " + signalName + " to PID " +
                      std::to_string(pid));
-        
+
         if (kill(pid, signalValue) != 0) {
             std::string errorMsg = requestedProgram + ": failed to send signal to PID " +
-                          std::to_string(pid) + ": " + strerror(errno);
+                                   std::to_string(pid) + ": " + strerror(errno);
             Logger::error(errorMsg);
             response << errorMsg << std::endl;
         }
@@ -96,15 +88,15 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
     }
 
     if (!pidsToStop.empty()) {
-        std::string forceKillMsg = requestedProgram + ": force killing " + 
-                     std::to_string(pidsToStop.size()) + " remaining processes";
+        std::string forceKillMsg = requestedProgram + ": force killing " +
+                                   std::to_string(pidsToStop.size()) + " remaining processes";
         Logger::info(forceKillMsg);
         response << forceKillMsg << std::endl;
-        
+
         for (pid_t pid : pidsToStop) {
             if (kill(pid, SIGKILL) != 0) {
-                std::string killErrorMsg = requestedProgram + ": failed to kill PID " + 
-                              std::to_string(pid) + ": " + strerror(errno);
+                std::string killErrorMsg = requestedProgram + ": failed to kill PID " +
+                                           std::to_string(pid) + ": " + strerror(errno);
                 Logger::error(killErrorMsg);
                 response << killErrorMsg << std::endl;
             }
@@ -114,6 +106,6 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
         Logger::info(stoppedMsg);
         response << stoppedMsg << std::endl;
     }
-    
+
     return response.str();
 }

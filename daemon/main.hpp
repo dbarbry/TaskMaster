@@ -18,6 +18,8 @@
 #include <thread>
 
 #include "cmds/cmds.hpp"
-#include "launch/launch.hpp"
+#include "launch/config_program.hpp"
 
-#endif
+void run_server(TaskmasterConfig& config);
+
+#endif  // MAIN_HPP

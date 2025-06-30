@@ -16,12 +16,43 @@ static std::string trim(const std::string &line) {
 }
 
 /**
+ * @brief Expand a glob pattern into a list of matching file paths.
+ *
+ * This function uses the POSIX glob() system call to resolve wildcard patterns 
+ * like "*.conf" or "configs/*.conf" into a vector of actual file paths.
+ *
+ * @param pattern The glob pattern to match files against (supports wildcards like '*', '?', etc.).
+ * @return A vector of strings, each representing a file path that matches the pattern.
+ *
+ * @note If the pattern does not match any files, an empty vector is returned.
+ * @warning If glob fails (e.g., due to bad syntax or memory allocation), an error is logged to stderr.
+ */
+std::vector<std::string> expand_glob(const std::string &pattern) {
+    std::vector<std::string> results;
+    glob_t                   glob_result;
+
+    int ret = glob(pattern.c_str(), GLOB_TILDE, nullptr, &glob_result);
+    if (ret != 0) {
+        std::cerr << "Glob failed for pattern: " << pattern << std::endl;
+        globfree(&glob_result);
+        return results;
+    }
+
+    for (size_t i = 0; i < glob_result.gl_pathc; ++i) {
+        results.emplace_back(glob_result.gl_pathv[i]);
+    }
+
+    globfree(&glob_result);
+    return results;
+}
+
+/**
  * @brief Create a lowercase copy of a string.
  *
  * @param input The input string to convert.
  * @return A new string where all alphabetic characters are lowercase.
  */
-static std::string to_lower_copy(const std::string &input) {
+std::string to_lower_copy(const std::string &input) {
     std::string result = input;
 
     std::transform(result.begin(), result.end(), result.begin(), ::tolower);
@@ -452,7 +483,16 @@ void parse_include(TaskmasterConfig &config, const ConfigSection &section) {
     for (const auto &[key, value] : section.key_values) {
         std::string lower_key = utils::to_lower_copy(key);
 
-        if (lower_key == "files") config.files = config_validator::validate_path(value, lower_key);
+        if (lower_key == "files") {
+            std::string path = config_validator::validate_path(value, lower_key);
+
+            if (path.find('*') == std::string::npos || !path.ends_with(".conf")) {
+                throw std::runtime_error(
+                    "The 'files' directive must be a glob ending in '*.conf': " + value);
+            }
+
+            config.files = path;
+        }
     }
 }
 

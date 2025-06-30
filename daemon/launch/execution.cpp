@@ -1,9 +1,10 @@
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "../cmds/service_state.hpp"
 #include "../logger.hpp"
-#include "launch.hpp"
-#include <sys/stat.h> 
-#include <unistd.h>    
-#include <stdlib.h>    
+#include "./config_program.hpp"
 
 std::map<std::string, int> active_programs;
 volatile sig_atomic_t      child_exited = 0;
