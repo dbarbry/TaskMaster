@@ -79,7 +79,7 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
     else if (command == "attach")
         response << attachCommand(words, client_fd);
     else if (command == "reload")
-        response << reloadCommand(parsedCommand, programs);
+        response << reloadCommand(parsedCommand, config.programs, config);
     else
         response << "Command " + command + " not found." << std::endl << "Type 'help' for help.";
     response << std::endl;
