@@ -20,6 +20,7 @@
 #include "cmds/cmds.hpp"
 #include "launch/config_program.hpp"
 
+const std::string& getConfigPath();
 void run_server(TaskmasterConfig& config);
 
 #endif  // MAIN_HPP

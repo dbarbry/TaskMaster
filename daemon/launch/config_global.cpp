@@ -534,6 +534,7 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
         sections[current_section].key_values.emplace_back(*kv_opt);
     }
 
+    config.conf_path = filepath;
     for (auto &[section_name, section] : sections) {
         if (section_name == "unix_http_server")
             parse_unix_http_server(config, section);

@@ -3,6 +3,12 @@
 #include "./launch/config_global.hpp"
 #include "logger.hpp"
 
+static std::string g_config_file_path;
+
+const std::string& getConfigPath() {
+    return g_config_file_path;
+}
+
 bool is_conf_file(std::string filename) {
     std::ifstream file(filename);
 
@@ -31,6 +37,9 @@ int main(int ac, char **av) {
         return 1;
     }
     Logger::info(".conf : " + std::string(av[1]));
+
+        g_config_file_path = av[1];
+    Logger::info(".conf : " + g_config_file_path);
 
     try {
         config = parse_taskmaster_conf(av[1]);

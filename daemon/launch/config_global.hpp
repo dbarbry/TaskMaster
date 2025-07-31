@@ -41,6 +41,9 @@ class TaskmasterConfig {
     std::optional<gid_t> socket_gid;
 
    public:
+    // config file path
+    std::string conf_path;
+
     // [supervisord] section
     std::string                        logfile  = "/tmp/taskmaster.log";
     mode_t                             umask    = 022;
