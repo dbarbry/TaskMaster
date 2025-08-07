@@ -54,8 +54,9 @@ class Shell {
 
    private:
     bool send_cmd(int fd, const std::string &cmd) {
-        char        buffer[BUFFER_SIZE] = {0};
-        std::string message             = cmd + "\n";
+        std::string message = cmd + "\n";
+        std::string response;
+        char        buffer[BUFFER_SIZE];
         ssize_t     bytes_read;
 
         if (write(fd, message.c_str(), message.size()) <= 0) {
@@ -63,16 +64,36 @@ class Shell {
             return false;
         }
 
-        bytes_read = read(fd, buffer, BUFFER_SIZE - 1);
-        if (bytes_read < 0) {
-            perror("read failed");
-            return false;
-        } else if (bytes_read == 0) {
+        while (true) {
+            bytes_read = read(fd, buffer, BUFFER_SIZE - 1);
+            if (bytes_read < 0) {
+                perror("read failed");
+                return false;
+            } else if (bytes_read == 0) {
+                break;
+            }
+
+            buffer[bytes_read] = '\0';
+            response += buffer;
+
+            // Check if we have received the complete response
+            // Server responses typically end with newline
+            if (bytes_read < BUFFER_SIZE - 1) {
+                // Received less than buffer size, likely end of transmission
+                break;
+            }
+        }
+
+        if (response.empty()) {
             std::cerr << "Server closed the connection.\n";
             return false;
         }
 
-        std::cout << "Server: " << buffer;
+        std::cout << "Server: " << response;
+        // Ensure we have a newline at the end for proper prompt display
+        if (!response.empty() && response.back() != '\n') {
+            std::cout << std::endl;
+        }
         return true;
     }
 
