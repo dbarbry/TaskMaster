@@ -115,16 +115,13 @@ void run_server(TaskmasterConfig &config) {
     struct sockaddr_un address;
     const std::string  socket_path = config.file;
 
-    if (!config.pidfile.has_value()) {
-        std::ofstream pidf(config.pidfile.value());
-        if (!pidf) {
-            Logger::error("Error: cannot write PID file: " + config.pidfile.value() +
-                          ". Check permissions.");
-            exit(EXIT_FAILURE);
-        }
-        pidf << getpid() << std::endl;
-        pidf.close();
+    std::ofstream pidf(config.pidfile);
+    if (!pidf) {
+        Logger::error("Error: cannot write PID file: " + config.pidfile + ". Check permissions.");
+        std::exit(EXIT_FAILURE);
     }
+    pidf << getpid() << std::endl;
+    pidf.close();
 
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         Logger::error("socket failed: " + std::string(strerror(errno)));

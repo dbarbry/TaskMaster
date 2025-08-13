@@ -454,9 +454,10 @@ void parse_supervisord(TaskmasterConfig &config, const ConfigSection &section) {
             config.umask = config_validator::validate_octal(value, lower_key);
         else if (lower_key == "nodaemon")
             config.nodaemon = config_validator::validate_bool(value, lower_key);
-        else if (lower_key == "silent")
-            config.silent = config_validator::validate_bool(value, lower_key);
-        else if (lower_key == "minfds") {
+        else if (lower_key == "silent") {
+            config.silent  = config_validator::validate_bool(value, lower_key);
+            Logger::silent = config.silent;
+        } else if (lower_key == "minfds") {
             config.minfds = config_validator::validate_integer(value, lower_key);
             config_validator::validate_minfds(config.minfds);
         } else if (lower_key == "minprocs") {

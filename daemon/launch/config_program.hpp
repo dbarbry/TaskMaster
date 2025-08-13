@@ -154,23 +154,22 @@ class ProgramConfig {
     void setEnvironment(const std::map<std::string, std::string>& value) { environment = value; }
 
     void logConfig() const {
-        std::cout << "command: " << command << std::endl;
-        std::cout << "numprocs: " << numprocs << std::endl;
-        std::cout << "umask: " << getUmask() << std::endl;
-        std::cout << "workingdir: " << workingdir << std::endl;
-        std::cout << "autostart: " << (autostart ? "true" : "false") << std::endl;
-        std::cout << "autorestart: " << getAutorerestartString() << std::endl;
-        std::cout << "startretries: " << startretries << std::endl;
-        std::cout << "startsecs: " << startsecs << std::endl;
-        std::cout << "stopsignal: " << getStopsignalString() << std::endl;
-        std::cout << "stopwaitsecs: " << stopwaitsecs << std::endl;
-        std::cout << "stdout_logfile: " << stdout_logfile << std::endl;
-        std::cout << "stderr_logfile: " << stderr_logfile << std::endl;
-        std::cout << "exitcodes: ";
-        for (const auto& exitcode : exitcodes) std::cout << exitcode << " " << std::endl;
-        std::cout << "environment: " << std::endl;
-        for (const auto& env : environment)
-            std::cout << "  " << env.first << "=" << env.second << std::endl;
+        Logger::info("command: " + command);
+        Logger::info("numprocs: " + numprocs);
+        Logger::info("umask: " + getUmask());
+        Logger::info("workingdir: " + workingdir);
+        Logger::info("autostart: " + getAutostart());
+        Logger::info("autorestart: " + getAutorerestartString());
+        Logger::info("startretries: " + startretries);
+        Logger::info("startsecs: " + startsecs);
+        Logger::info("stopsignal: " + getStopsignalString());
+        Logger::info("stopwaitsecs: " + stopwaitsecs);
+        Logger::info("stdout_logfile: " + stdout_logfile);
+        Logger::info("stderr_logfile: " + stderr_logfile);
+        Logger::info("exitcodes: ");
+        for (const auto& exitcode : exitcodes) Logger::info(exitcode + " ");
+        Logger::info("environment: ");
+        for (const auto& env : environment) Logger::info("  " + env.first + "=" + env.second);
     }
 
     bool isValid() {

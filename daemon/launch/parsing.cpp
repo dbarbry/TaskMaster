@@ -5,6 +5,7 @@
 #include <string>
 
 #include "./config_program.hpp"
+#include "./logger.hpp"
 
 /**
  * @brief Parse une ligne de configuration au format "clé=valeur"
@@ -175,9 +176,8 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
  */
 void log_config(const std::map<std::string, ProgramConfig>& programs) {
     for (const auto& [name, config] : programs) {
-        std::cout << "Program: " << name << std::endl;
+        Logger::info("Program: " + name);
         config.logConfig();
-        std::cout << std::endl;
     }
 }
 
