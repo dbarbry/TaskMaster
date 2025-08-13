@@ -2,7 +2,6 @@
 #include "main.hpp"
 
 #define BUFFER_SIZE 1024
-#define LOG_PATH "/tmp/"
 
 void daemonize(TaskmasterConfig &config) {
     char        log_filename[128];
@@ -34,6 +33,15 @@ void daemonize(TaskmasterConfig &config) {
     }
     if (pid > 0) {
         exit(0);
+    }
+
+    if (config.environment.has_value()) {
+        for (const auto &[key, value] : config.environment.value()) {
+            if (setenv(key.c_str(), value.c_str(), 1) != 0) {
+                Logger::error("Failed to set environment variable: " + key);
+                std::exit(EXIT_FAILURE);
+            }
+        }
     }
 
     umask(config.umask);

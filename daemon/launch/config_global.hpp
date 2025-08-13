@@ -45,16 +45,16 @@ class TaskmasterConfig {
     std::string conf_path;
 
     // [supervisord] section
-    std::string                        logfile  = "/tmp/taskmaster.log";
-    mode_t                             umask    = 022;
-    bool                               nodaemon = false;
-    bool                               silent   = false;
-    std::optional<std::string>         pidfile  = "/tmp/taskmasterd.pid";
-    int                                minfds   = 1024;
-    int                                minprocs = 200;
-    std::optional<std::string>         user;
-    std::optional<std::string>         directory;
-    std::map<std::string, std::string> environment;
+    std::string                                       logfile  = "/tmp/taskmaster.log";
+    mode_t                                            umask    = 022;
+    bool                                              nodaemon = false;
+    bool                                              silent   = false;
+    std::optional<std::string>                        pidfile  = "/tmp/taskmasterd.pid";
+    int                                               minfds   = 1024;
+    int                                               minprocs = 200;
+    std::optional<std::string>                        user;
+    std::optional<std::string>                        directory;
+    std::optional<std::map<std::string, std::string>> environment;
 
     // [include] section
     std::string files = "/etc/supervisor/conf.d/*.conf";
