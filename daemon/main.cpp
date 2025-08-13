@@ -5,7 +5,7 @@
 
 static std::string g_config_file_path;
 
-const std::string& getConfigPath() {
+const std::string &getConfigPath() {
     return g_config_file_path;
 }
 
@@ -38,7 +38,7 @@ int main(int ac, char **av) {
     }
     Logger::info(".conf : " + std::string(av[1]));
 
-        g_config_file_path = av[1];
+    g_config_file_path = av[1];
     Logger::info(".conf : " + g_config_file_path);
 
     try {
@@ -62,7 +62,7 @@ int main(int ac, char **av) {
     log_config(config.programs);
     std::thread program_thread(exec_programs, config.programs);
 
-    // daemonize();
+    if (!config.nodaemon) daemonize(config);
     run_server(config);
 
     program_thread.join();

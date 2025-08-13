@@ -1,12 +1,11 @@
 #include "logger.hpp"
 #include "main.hpp"
 
-#define LOG_PATH "/home/dhaya/taskmaster/log"
-#define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024
+#define LOG_PATH "/tmp/"
 
-void daemonize(void) {
-    char        log_filename[256];
+void daemonize(TaskmasterConfig &config) {
+    char        log_filename[128];
     std::string path_filename;
     struct tm  *time_info;
     int         log_fd;
@@ -37,10 +36,15 @@ void daemonize(void) {
         exit(0);
     }
 
-    umask(0);
+    umask(config.umask);
 
-    if (chdir("/") < 0) {
-        Logger::error("chdir failed: " + std::string(strerror(errno)));
+    if (config.directory.has_value()) {
+        if (chdir(config.directory->c_str()) < 0) {
+            Logger::error("chdir failed: " + std::string(strerror(errno)));
+            exit(1);
+        }
+    } else {
+        Logger::error("directory field error: " + std::string(strerror(errno)));
         exit(1);
     }
 
@@ -51,12 +55,15 @@ void daemonize(void) {
     now       = time(nullptr);
     time_info = localtime(&now);
     strftime(log_filename, sizeof(log_filename), "/log-%Y_%m_%d-daemon.txt", time_info);
-    path_filename.append(LOG_PATH);
-    path_filename.append(log_filename);
+    path_filename = config.logfile;
+    if (!path_filename.empty() && path_filename.back() != '/') path_filename += '/';
+    path_filename += log_filename;
     log_fd = open(path_filename.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
-    if (log_fd < 0) exit(1);
-
+    if (!log_fd) {
+        Logger::error("open failed: " + std::string(strerror(errno)));
+        std::exit(EXIT_FAILURE);
+    }
     dup2(log_fd, STDOUT_FILENO);
     dup2(log_fd, STDERR_FILENO);
     close(log_fd);
@@ -98,23 +105,46 @@ void handle_client(int client_fd, int server_fd, TaskmasterConfig &config) {
 void run_server(TaskmasterConfig &config) {
     int                server_fd, client_fd;
     struct sockaddr_un address;
+    const std::string  socket_path = config.file;
+
+    if (!config.pidfile.has_value()) {
+        std::ofstream pidf(config.pidfile.value());
+        if (!pidf) {
+            Logger::error("Error: cannot write PID file: " + config.pidfile.value() +
+                          ". Check permissions.");
+            exit(EXIT_FAILURE);
+        }
+        pidf << getpid() << std::endl;
+        pidf.close();
+    }
 
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         Logger::error("socket failed: " + std::string(strerror(errno)));
         exit(1);
     }
 
-    unlink(SOCKET_PATH);
+    unlink(socket_path.c_str());
 
     memset(&address, 0, sizeof(address));
     address.sun_family = AF_UNIX;
-    strncpy(address.sun_path, SOCKET_PATH, sizeof(address.sun_path) - 1);
+    strncpy(address.sun_path, socket_path.c_str(), sizeof(address.sun_path) - 1);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         Logger::error("bind failed: " + std::string(strerror(errno)));
         exit(EXIT_FAILURE);
     }
-    chmod(SOCKET_PATH, 0777);
+
+    if (chmod(config.file.c_str(), config.chmod) < 0) {
+        Logger::error("chmod failed: " + std::string(strerror(errno)));
+        exit(EXIT_FAILURE);
+    }
+    if (config.chown.has_value()) {
+        if (chown(config.file.c_str(), config.get_socket_uid().value_or(getuid()),
+                  config.get_socket_gid().value_or(getgid())) < 0) {
+            Logger::error("chown failed: " + std::string(strerror(errno)));
+            exit(EXIT_FAILURE);
+        }
+    }
 
     if (listen(server_fd, 5) < 0) {
         Logger::error("listen failed: " + std::string(strerror(errno)));
@@ -142,5 +172,5 @@ void run_server(TaskmasterConfig &config) {
     }
 
     if (server_fd >= 0) close(server_fd);
-    unlink(SOCKET_PATH);
+    unlink(socket_path.c_str());
 }

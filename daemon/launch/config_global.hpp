@@ -49,6 +49,7 @@ class TaskmasterConfig {
     mode_t                             umask    = 022;
     bool                               nodaemon = false;
     bool                               silent   = false;
+    std::optional<std::string>         pidfile  = "/tmp/taskmasterd.pid";
     int                                minfds   = 1024;
     int                                minprocs = 200;
     std::optional<std::string>         user;

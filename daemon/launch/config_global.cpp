@@ -462,11 +462,13 @@ void parse_supervisord(TaskmasterConfig &config, const ConfigSection &section) {
         } else if (lower_key == "minprocs") {
             config.minprocs = config_validator::validate_integer(value, lower_key);
             config_validator::validate_minprocs(config.minprocs);
-        } else if (lower_key == "user")
+        } else if (lower_key == "pidfile")
+            config.pidfile = config_validator::validate_path(value, lower_key);
+        else if (lower_key == "user")
             config.user = config_validator::validate_user_field(value, lower_key);
-        else if (lower_key == "directory") {
+        else if (lower_key == "directory")
             config.directory = config_validator::validate_path(value, lower_key);
-        } else if (lower_key == "environment")
+        else if (lower_key == "environment")
             config.environment = config_parser::parse_environment(value);
     }
 }
