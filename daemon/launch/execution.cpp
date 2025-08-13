@@ -94,6 +94,9 @@ void set_environment(const std::map<std::string, std::string> &env,
 
 void redirect_output(int pty_fd, const std::string &stdout_file, const std::string &stderr_file) {
     if (pty_fd >= 0) {
+        dup2(pty_fd, STDIN_FILENO);
+        dup2(pty_fd, STDOUT_FILENO);
+        dup2(pty_fd, STDERR_FILENO);
         return;
     }
 

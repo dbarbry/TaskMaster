@@ -125,13 +125,22 @@ void run_server(TaskmasterConfig &config) {
 
     while (true) {
         if ((client_fd = accept(server_fd, 0, 0)) < 0) {
-            Logger::error("accept failed: " + std::string(strerror(errno)));
+            int err = errno;
+            if (err == EINTR) {
+                continue;
+            }
+            if (err == EBADF || err == EINVAL) {
+                Logger::info("Server socket closed, stopping accept loop");
+                break;
+            }
+            Logger::error("accept failed: " + std::string(strerror(err)));
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
         Logger::info("Client connected");
         handle_client(client_fd, server_fd, config);
     }
 
-    close(server_fd);
+    if (server_fd >= 0) close(server_fd);
     unlink(SOCKET_PATH);
 }
