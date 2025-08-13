@@ -101,7 +101,8 @@ static std::optional<KeyValue> parse_line(const std::string &raw_line) {
     const std::string key   = utils::trim(clean_line.substr(0, equal_pos));
     const std::string value = utils::trim(clean_line.substr(equal_pos + 1));
 
-    if (key.empty()) return std::nullopt;
+    if (key.empty() || value.empty())
+        throw std::runtime_error("Empty value for '" + key + "' in configuration file");
 
     return KeyValue {key, value};
 }
