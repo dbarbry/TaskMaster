@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "../cmds/service_types.hpp"
+#include "../logger.hpp"
 
 enum class EAutorestart {
     ALWAYS,     // "true"
