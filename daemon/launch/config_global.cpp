@@ -294,18 +294,22 @@ mode_t validate_octal(const std::string &value, const std::string &field_name) {
  */
 std::pair<uid_t, gid_t> validate_chown(const std::string &user_part,
                                        const std::string &group_part) {
-    struct passwd *pw = getpwnam(user_part.c_str());
-    uid_t          uid;
-    gid_t          gid;
+    uid_t uid = static_cast<uid_t>(-1);  // -1 means "don't change" in chown
+    gid_t gid = static_cast<gid_t>(-1);
 
-    if (!pw) throw std::runtime_error("Invalid user in chown: " + user_part);
-    uid = pw->pw_uid;
+    if (!user_part.empty()) {
+        struct passwd *pw = getpwnam(user_part.c_str());
+        if (!pw) throw std::runtime_error("Invalid user in chown: " + user_part);
+        uid = pw->pw_uid;
+
+        // If group is empty, use user's default group
+        if (group_part.empty()) gid = pw->pw_gid;
+    }
+
     if (!group_part.empty()) {
         struct group *gr = getgrnam(group_part.c_str());
         if (!gr) throw std::runtime_error("Invalid group in chown: " + group_part);
         gid = gr->gr_gid;
-    } else {
-        gid = pw->pw_gid;  // user's default group (= not defined)
     }
 
     return {uid, gid};
@@ -421,7 +425,7 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
         std::string lower_key = utils::to_lower_copy(key);
 
         if (lower_key == "file")
-            config.file = value;
+            config.file = config_validator::validate_path(value, lower_key);
         else if (lower_key == "chmod")
             config.chmod = config_validator::validate_octal(value, lower_key);
         else if (lower_key == "chown") {
