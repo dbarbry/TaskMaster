@@ -175,6 +175,24 @@ std::filesystem::path validate_path(const std::string &value, const std::string 
 }
 
 /**
+ * @brief Validate that a given absolute path is a directory (folder).
+ *
+ * @param path The absolute path to validate.
+ * @param field_name The name of the config field (for error messages).
+ * @return The validated path (unchanged) if it's a folder.
+ * @throws std::runtime_error if the path is not a folder or does not exist.
+ */
+std::filesystem::path validate_folder(const std::filesystem::path &path,
+                                      const std::string           &field_name) {
+    if (!std::filesystem::is_directory(path) || !std::filesystem::exists(path)) {
+        throw std::runtime_error("Invalid path for " + field_name +
+                                 ": must be a folder, not a file (" + path.string() + ")");
+    }
+
+    return path;
+}
+
+/**
  * @brief Validate that a given string is an absolute, existing directory path.
  *
  * @param value The directory path string to validate.
@@ -452,9 +470,10 @@ void parse_taskmasterd(TaskmasterConfig &config, const ConfigSection &section) {
     for (const auto &[key, value] : section.key_values) {
         std::string lower_key = utils::to_lower_copy(key);
 
-        if (lower_key == "logfile")
-            config.logfile = config_validator::validate_path(value, lower_key);
-        else if (lower_key == "umask")
+        if (lower_key == "logfile") {
+            auto abs_path  = config_validator::validate_path(value, lower_key);
+            config.logfile = config_validator::validate_folder(abs_path, lower_key);
+        } else if (lower_key == "umask")
             config.umask = config_validator::validate_octal(value, lower_key);
         else if (lower_key == "nodaemon")
             config.nodaemon = config_validator::validate_bool(value, lower_key);

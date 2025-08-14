@@ -89,16 +89,28 @@ void daemonize(TaskmasterConfig &config) {
 
     now       = time(nullptr);
     time_info = localtime(&now);
-    strftime(log_filename, sizeof(log_filename), "/log-%Y_%m_%d-daemon.txt", time_info);
-    path_filename = config.logfile;
-    if (!path_filename.empty() && path_filename.back() != '/') path_filename += '/';
-    path_filename += log_filename;
-    log_fd = open(path_filename.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    std::string log_filename_str;
+    char        date_str[64];
+    strftime(date_str, sizeof(date_str), "log-%Y_%m_%d-daemon.txt", time_info);
+    log_filename_str = config.logfile;
+    if (!log_filename_str.empty() && log_filename_str.back() != '/') log_filename_str += '/';
+    log_filename_str += date_str;
 
-    if (!log_fd) {
-        Logger::error("open failed: " + std::string(strerror(errno)));
+    log_fd = open(log_filename_str.c_str(), O_WRONLY | O_CREAT | O_APPEND, config.chmod);
+    if (log_fd < 0) {
+        Logger::error("Failed to open log file: " + std::string(strerror(errno)));
         std::exit(EXIT_FAILURE);
     }
+
+    if (config.chown.has_value()) {
+        if (chown(log_filename_str.c_str(), config.get_socket_uid().value_or(getuid()),
+                  config.get_socket_gid().value_or(getgid())) < 0) {
+            Logger::error("chown failed: " + std::string(strerror(errno)));
+            close(log_fd);
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
     dup2(log_fd, STDOUT_FILENO);
     dup2(log_fd, STDERR_FILENO);
     close(log_fd);

@@ -45,7 +45,7 @@ class TaskmasterConfig {
     std::string conf_path;
 
     // [supervisord] section
-    std::string                                       logfile  = "/tmp/taskmaster.log";
+    std::string                                       logfile  = "/tmp/taskmasterd.log";
     mode_t                                            umask    = 022;
     bool                                              nodaemon = false;
     bool                                              silent   = false;
