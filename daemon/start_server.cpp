@@ -51,13 +51,26 @@ void apply_runtime_settings(TaskmasterConfig &config) {
     pidf.close();
 }
 
+std::string get_logfile_name(TaskmasterConfig &config) {
+    time_t      now       = time(nullptr);
+    struct tm  *time_info = localtime(&now);
+    std::string logfile_name;
+    char        date_str[64];
+
+    strftime(date_str, sizeof(date_str), "log-%Y_%m_%d-daemon.txt", time_info);
+    logfile_name = config.logfile;
+    if (!logfile_name.empty() && logfile_name.back() != '/') logfile_name += '/';
+    logfile_name += date_str;
+
+    Logger::info("Logfile located at: " + logfile_name);
+
+    return logfile_name;
+}
+
 void daemonize(TaskmasterConfig &config) {
-    char        log_filename[128];
-    std::string path_filename;
-    struct tm  *time_info;
-    int         log_fd;
     pid_t       pid;
-    time_t      now;
+    int         log_fd;
+    std::string logfile_name;
 
     pid = fork();
     if (pid < 0) {
@@ -74,7 +87,8 @@ void daemonize(TaskmasterConfig &config) {
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
-    pid = fork();
+    logfile_name = get_logfile_name(config);
+    pid          = fork();
     if (pid < 0) {
         Logger::error("fork failed: " + std::string(strerror(errno)));
         exit(1);
@@ -87,23 +101,14 @@ void daemonize(TaskmasterConfig &config) {
         close(fd);
     }
 
-    now       = time(nullptr);
-    time_info = localtime(&now);
-    std::string log_filename_str;
-    char        date_str[64];
-    strftime(date_str, sizeof(date_str), "log-%Y_%m_%d-daemon.txt", time_info);
-    log_filename_str = config.logfile;
-    if (!log_filename_str.empty() && log_filename_str.back() != '/') log_filename_str += '/';
-    log_filename_str += date_str;
-
-    log_fd = open(log_filename_str.c_str(), O_WRONLY | O_CREAT | O_APPEND, config.chmod);
+    log_fd = open(logfile_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, config.chmod);
     if (log_fd < 0) {
         Logger::error("Failed to open log file: " + std::string(strerror(errno)));
         std::exit(EXIT_FAILURE);
     }
 
     if (config.chown.has_value()) {
-        if (chown(log_filename_str.c_str(), config.get_socket_uid().value_or(getuid()),
+        if (chown(logfile_name.c_str(), config.get_socket_uid().value_or(getuid()),
                   config.get_socket_gid().value_or(getgid())) < 0) {
             Logger::error("chown failed: " + std::string(strerror(errno)));
             close(log_fd);

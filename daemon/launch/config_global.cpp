@@ -185,8 +185,8 @@ std::filesystem::path validate_path(const std::string &value, const std::string 
 std::filesystem::path validate_folder(const std::filesystem::path &path,
                                       const std::string           &field_name) {
     if (!std::filesystem::is_directory(path) || !std::filesystem::exists(path)) {
-        throw std::runtime_error("Invalid path for " + field_name +
-                                 ": must be a folder, not a file (" + path.string() + ")");
+        throw std::runtime_error("" + field_name + " must be a folder, not a file (" +
+                                 path.string() + ")");
     }
 
     return path;
