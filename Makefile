@@ -88,6 +88,10 @@ client:
 .PHONY: client
 
 server:
+	@if ! getent group taskmaster > /dev/null; then \
+		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' does not exist, creating..."; \
+		sudo groupadd taskmaster; \
+	fi
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
     if [ "$$PID" ]; then \
         echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
