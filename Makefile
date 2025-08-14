@@ -102,13 +102,16 @@ server:
 .PHONY: server
 
 kill:
-	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
-    if [ -z "$$PID" ]; then \
-        echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
-    else \
-        kill $$PID; \
-        echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
-    fi
+	@PID=$$(ps -eo pid,args | grep "[d]aemon.out" | grep -v grep | awk '{print $$1}'); \
+	if [ -z "$$PID" ]; then \
+		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
+	else \
+		if ! sudo kill $$PID 2>/dev/null; then \
+			echo "$(RED)[ERROR] :$(RST) Failed to kill daemon (need root?)$(RED)\033[56G[✘]$(RST)"; \
+			exit 1; \
+		fi; \
+		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
+	fi
 .PHONY: kill
 
 clean:
