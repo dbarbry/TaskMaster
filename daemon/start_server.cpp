@@ -3,6 +3,54 @@
 
 #define BUFFER_SIZE 1024
 
+void apply_runtime_settings(TaskmasterConfig &config) {
+    if (config.environment.has_value()) {
+        for (const auto &[key, value] : config.environment.value()) {
+            if (setenv(key.c_str(), value.c_str(), 1) != 0) {
+                Logger::error("Failed to set environment variable: " + key);
+                std::exit(EXIT_FAILURE);
+            }
+        }
+    }
+    umask(config.umask);
+
+    if (config.directory.has_value()) {
+        if (chdir(config.directory->c_str()) < 0) {
+            Logger::error("chdir failed: " + std::string(strerror(errno)));
+            exit(1);
+        }
+    } else {
+        if (chdir("/tmp") < 0) {
+            Logger::error("chdir failed: " + std::string(strerror(errno)));
+            exit(1);
+        }
+        exit(1);
+    }
+
+    if (config.user.has_value()) {
+        struct passwd *pw = getpwnam(config.user->c_str());
+        if (!pw) {
+            Logger::error("Invalid user in config: " + *config.user);
+            std::exit(EXIT_FAILURE);
+        }
+        if (setgid(pw->pw_gid) != 0 || initgroups(pw->pw_name, pw->pw_gid) != 0 ||
+            setuid(pw->pw_uid) != 0) {
+            Logger::error("Failed to drop privileges to user " + *config.user + ": " +
+                          strerror(errno));
+            std::exit(EXIT_FAILURE);
+        }
+        Logger::info("Running as user: " + *config.user);
+    }
+
+    std::ofstream pidf(config.pidfile);
+    if (!pidf) {
+        Logger::error("Cannot write PID file: " + config.pidfile);
+        std::exit(EXIT_FAILURE);
+    }
+    pidf << getpid() << std::endl;
+    pidf.close();
+}
+
 void daemonize(TaskmasterConfig &config) {
     char        log_filename[128];
     std::string path_filename;
@@ -33,27 +81,6 @@ void daemonize(TaskmasterConfig &config) {
     }
     if (pid > 0) {
         exit(0);
-    }
-
-    if (config.environment.has_value()) {
-        for (const auto &[key, value] : config.environment.value()) {
-            if (setenv(key.c_str(), value.c_str(), 1) != 0) {
-                Logger::error("Failed to set environment variable: " + key);
-                std::exit(EXIT_FAILURE);
-            }
-        }
-    }
-
-    umask(config.umask);
-
-    if (config.directory.has_value()) {
-        if (chdir(config.directory->c_str()) < 0) {
-            Logger::error("chdir failed: " + std::string(strerror(errno)));
-            exit(1);
-        }
-    } else {
-        Logger::error("directory field error: " + std::string(strerror(errno)));
-        exit(1);
     }
 
     for (int fd = sysconf(_SC_OPEN_MAX); fd >= 0; fd--) {

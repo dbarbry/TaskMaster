@@ -38,9 +38,6 @@ int main(int ac, char **av) {
     }
     Logger::info(".conf : " + std::string(av[1]));
 
-    g_config_file_path = av[1];
-    Logger::info(".conf : " + g_config_file_path);
-
     try {
         config = parse_taskmaster_conf(av[1]);
         Logger::info("Configuration file parsed successfully.");
@@ -62,7 +59,12 @@ int main(int ac, char **av) {
     log_config(config.programs);
     std::thread program_thread(exec_programs, config.programs);
 
-    if (!config.nodaemon) daemonize(config);
+    if (!config.nodaemon)
+        daemonize(config);
+    else
+        Logger::info("Logfile only works in daemonized mode.");
+
+    apply_runtime_settings(config);
     run_server(config);
 
     program_thread.join();

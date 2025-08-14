@@ -438,7 +438,7 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
 }
 
 /**
- * @brief Parses the [supervisord] section of the configuration file.
+ * @brief Parses the [taskmasterd] section of the configuration file.
  *
  * Extracts and validates key configuration values like `logfile`, `umask`,
  * `nodaemon`, `silent`, `minfds`, `minprocs`, `user`, `directory`, and
@@ -446,9 +446,9 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
  * fields in the TaskmasterConfig object.
  *
  * @param config Reference to the TaskmasterConfig structure to populate.
- * @param section The parsed key-value pairs from the [supervisord] section.
+ * @param section The parsed key-value pairs from the [taskmasterd] section.
  */
-void parse_supervisord(TaskmasterConfig &config, const ConfigSection &section) {
+void parse_taskmasterd(TaskmasterConfig &config, const ConfigSection &section) {
     for (const auto &[key, value] : section.key_values) {
         std::string lower_key = utils::to_lower_copy(key);
 
@@ -523,6 +523,7 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
     std::map<std::string, ConfigSection> sections;
     std::string                          current_section;
     std::string                          line;
+    int                                  check = 0;
 
     if (!file.is_open()) throw std::runtime_error("Unable to open config file: " + filepath);
 
@@ -544,14 +545,22 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
 
     config.conf_path = filepath;
     for (auto &[section_name, section] : sections) {
-        if (section_name == "unix_http_server")
+        if (section_name == "unix_http_server") {
             parse_unix_http_server(config, section);
-        else if (section_name == "supervisord")
-            parse_supervisord(config, section);
-        else if (section_name == "include")
+            check += 1;
+        } else if (section_name == "taskmasterd") {
+            parse_taskmasterd(config, section);
+            check += 1;
+        } else if (section_name == "include") {
             parse_include(config, section);
-        else
+            check += 1;
+        } else
             Logger::warn("Unknown section [" + section_name + "] is ignored.");
+    }
+    if (check != 3) {
+        throw std::runtime_error(
+            "Missing of of the three sections [unix_http_server], [taskmasterd] or [include] in "
+            "main config file.");
     }
 
     return config;

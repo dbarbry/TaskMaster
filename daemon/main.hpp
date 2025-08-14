@@ -22,6 +22,7 @@
 
 const std::string& getConfigPath();
 void               daemonize(TaskmasterConfig& config);
+void               apply_runtime_settings(TaskmasterConfig& config);
 void               run_server(TaskmasterConfig& config);
 
 #endif  // MAIN_HPP
