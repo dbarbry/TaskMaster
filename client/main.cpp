@@ -1,6 +1,6 @@
 #include "main.hpp"
 
-#define SOCKET_PATH "/tmp/taskmaster_socket"
+#define SOCKET_PATH "/tmp/taskmaster.sock"
 
 void run_server(int fd) {
     struct sockaddr_un address;
