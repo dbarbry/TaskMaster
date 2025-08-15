@@ -177,15 +177,15 @@ class ProgramConfig {
         bool valid = true;
 
         if (command.empty()) {
-            std::cerr << "Erreur: command est obligatoire." << std::endl;
+            Logger::error("Command is required.");
             valid = false;
         }
         if (workingdir.empty()) {
-            std::cerr << "Erreur: workingdir est obligatoire." << std::endl;
+            Logger::error("Workingdir is required.");
             valid = false;
         }
         if (environment.empty()) {
-            std::cerr << "Avertissement: Aucun environnement défini." << std::endl;
+            Logger::warn("No environment defined.");
         }
 
         return valid;

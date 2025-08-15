@@ -92,7 +92,7 @@ class TaskmasterConfig {
         int                      ret = glob(pattern.c_str(), GLOB_TILDE, nullptr, &glob_result);
 
         if (ret != 0) {
-            std::cerr << "Error reading pattern: " << pattern << std::endl;
+            Logger::error("Error reading pattern: " + pattern);
             globfree(&glob_result);
             return program_names;
         }

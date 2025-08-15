@@ -33,7 +33,7 @@ std::vector<std::string> expand_glob(const std::string &pattern) {
 
     int ret = glob(pattern.c_str(), GLOB_TILDE, nullptr, &glob_result);
     if (ret != 0) {
-        std::cerr << "Glob failed for pattern: " << pattern << std::endl;
+        Logger::error("Glob failed for pattern: " + pattern);
         globfree(&glob_result);
         return results;
     }

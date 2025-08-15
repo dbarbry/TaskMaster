@@ -52,7 +52,7 @@ class Logger {
     static void error(const T& message) {
         if (silent) return;
         std::lock_guard<std::mutex> lock(cout_mutex);
-        std::cerr << getTimestamp() << " [ERROR] " << message << std::endl;
+        Logger::error(message);
     }
 
     template <typename T>
