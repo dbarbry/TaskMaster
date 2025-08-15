@@ -137,19 +137,16 @@ re: fclean
 	$(MAKE) all
 .PHONY: re
 
-# Modification de la cible tsan pour utiliser la variable make directement
 tsan: fclean
 	@$(MAKE) all FLAGS="$(FLAGS) $(TSAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with ThreadSanitizer$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: tsan
 
-# Ajout d'une cible pour compiler sans sanitizer
 nosani: fclean
 	@$(MAKE) all FLAGS="$(filter-out $(TSAN_FLAGS), $(FLAGS))"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled without sanitizers$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: nosani
 
-# Modification similaire pour les autres sanitizers
 asan: fclean
 	@$(MAKE) all FLAGS="$(FLAGS) $(ASAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with AddressSanitizer$(BGREEN)\033[56G[✔]$(RST)"
