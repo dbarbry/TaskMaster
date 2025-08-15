@@ -37,10 +37,12 @@ int main(int ac, char **av) {
         return 1;
     }
     Logger::info(".conf : " + std::string(av[1]));
+    register_signal_handlers();
 
     try {
         config = parse_taskmaster_conf(av[1]);
         Logger::info("Configuration file parsed successfully.");
+        cleanup(&config);
     } catch (const std::exception &e) {
         Logger::error("Error parsing config file: " + std::string(e.what()));
         return 1;

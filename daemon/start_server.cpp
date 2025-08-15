@@ -17,27 +17,27 @@ void apply_runtime_settings(TaskmasterConfig &config) {
     if (config.directory.has_value()) {
         if (chdir(config.directory->c_str()) < 0) {
             Logger::error("chdir failed: " + std::string(strerror(errno)));
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     } else {
         if (chdir("/tmp") < 0) {
             Logger::error("chdir failed: " + std::string(strerror(errno)));
-            exit(1);
+            exit(EXIT_FAILURE);
         }
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     if (config.user.has_value()) {
         struct passwd *pw = getpwnam(config.user->c_str());
         if (!pw) {
             Logger::error("Invalid user in config: " + *config.user);
-            std::exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
         }
         if (setgid(pw->pw_gid) != 0 || initgroups(pw->pw_name, pw->pw_gid) != 0 ||
             setuid(pw->pw_uid) != 0) {
             Logger::error("Failed to drop privileges to user " + *config.user + ": " +
                           strerror(errno));
-            std::exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
         }
         Logger::info("Running as user: " + *config.user);
     }
@@ -45,7 +45,7 @@ void apply_runtime_settings(TaskmasterConfig &config) {
     std::ofstream pidf(config.pidfile);
     if (!pidf) {
         Logger::error("Cannot write PID file: " + config.pidfile);
-        std::exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
     pidf << getpid() << std::endl;
     pidf.close();
@@ -75,13 +75,13 @@ void daemonize(TaskmasterConfig &config) {
     pid = fork();
     if (pid < 0) {
         Logger::error("fork failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     if (pid > 0) exit(0);
 
     if (setsid() < 0) {
         Logger::error("setsid failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     signal(SIGCHLD, SIG_IGN);
@@ -91,11 +91,9 @@ void daemonize(TaskmasterConfig &config) {
     pid          = fork();
     if (pid < 0) {
         Logger::error("fork failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-    if (pid > 0) {
-        exit(0);
-    }
+    if (pid > 0) exit(0);
 
     for (int fd = sysconf(_SC_OPEN_MAX); fd >= 0; fd--) {
         close(fd);
@@ -104,7 +102,7 @@ void daemonize(TaskmasterConfig &config) {
     log_fd = open(logfile_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, config.chmod);
     if (log_fd < 0) {
         Logger::error("Failed to open log file: " + std::string(strerror(errno)));
-        std::exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     if (config.chown.has_value()) {
@@ -112,7 +110,7 @@ void daemonize(TaskmasterConfig &config) {
                   config.get_socket_gid().value_or(getgid())) < 0) {
             Logger::error("chown failed: " + std::string(strerror(errno)));
             close(log_fd);
-            std::exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -162,14 +160,14 @@ void run_server(TaskmasterConfig &config) {
     std::ofstream pidf(config.pidfile);
     if (!pidf) {
         Logger::error("Error: cannot write PID file: " + config.pidfile + ". Check permissions.");
-        std::exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
     pidf << getpid() << std::endl;
     pidf.close();
 
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         Logger::error("socket failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     unlink(socket_path.c_str());
