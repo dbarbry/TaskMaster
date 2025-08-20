@@ -16,6 +16,5 @@ std::string detach(std::vector<std::string> words) {
         return "Error closing attached FD for service " + service_name + "\n";
 
     attached_fds.erase(it);
-    std::cout << "[SERVER] Closed attached FD for service: " << service_name << std::endl;
     return "Detached service " + service_name + "\n";
 }

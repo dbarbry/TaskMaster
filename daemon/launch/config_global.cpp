@@ -33,7 +33,7 @@ std::vector<std::string> expand_glob(const std::string &pattern) {
 
     int ret = glob(pattern.c_str(), GLOB_TILDE, nullptr, &glob_result);
     if (ret != 0) {
-        std::cerr << "Glob failed for pattern: " << pattern << std::endl;
+        Logger::error("Glob failed for pattern: " + pattern);
         globfree(&glob_result);
         return results;
     }
@@ -101,7 +101,8 @@ static std::optional<KeyValue> parse_line(const std::string &raw_line) {
     const std::string key   = utils::trim(clean_line.substr(0, equal_pos));
     const std::string value = utils::trim(clean_line.substr(equal_pos + 1));
 
-    if (key.empty()) return std::nullopt;
+    if (key.empty() || value.empty())
+        throw std::runtime_error("Empty value for '" + key + "' in configuration file");
 
     return KeyValue {key, value};
 }
@@ -168,6 +169,24 @@ std::filesystem::path validate_path(const std::string &value, const std::string 
     if (!path.is_absolute()) {
         throw std::runtime_error("Invalid path for " + field_name + ": must be absolute (" + value +
                                  ")");
+    }
+
+    return path;
+}
+
+/**
+ * @brief Validate that a given absolute path is a directory (folder).
+ *
+ * @param path The absolute path to validate.
+ * @param field_name The name of the config field (for error messages).
+ * @return The validated path (unchanged) if it's a folder.
+ * @throws std::runtime_error if the path is not a folder or does not exist.
+ */
+std::filesystem::path validate_folder(const std::filesystem::path &path,
+                                      const std::string           &field_name) {
+    if (!std::filesystem::is_directory(path) || !std::filesystem::exists(path)) {
+        throw std::runtime_error("" + field_name + " must be a folder, not a file (" +
+                                 path.string() + ")");
     }
 
     return path;
@@ -293,18 +312,22 @@ mode_t validate_octal(const std::string &value, const std::string &field_name) {
  */
 std::pair<uid_t, gid_t> validate_chown(const std::string &user_part,
                                        const std::string &group_part) {
-    struct passwd *pw = getpwnam(user_part.c_str());
-    uid_t          uid;
-    gid_t          gid;
+    uid_t uid = static_cast<uid_t>(-1);  // -1 means "don't change" in chown
+    gid_t gid = static_cast<gid_t>(-1);
 
-    if (!pw) throw std::runtime_error("Invalid user in chown: " + user_part);
-    uid = pw->pw_uid;
+    if (!user_part.empty()) {
+        struct passwd *pw = getpwnam(user_part.c_str());
+        if (!pw) throw std::runtime_error("Invalid user in chown: " + user_part);
+        uid = pw->pw_uid;
+
+        // If group is empty, use user's default group
+        if (group_part.empty()) gid = pw->pw_gid;
+    }
+
     if (!group_part.empty()) {
         struct group *gr = getgrnam(group_part.c_str());
         if (!gr) throw std::runtime_error("Invalid group in chown: " + group_part);
         gid = gr->gr_gid;
-    } else {
-        gid = pw->pw_gid;  // user's default group (= not defined)
     }
 
     return {uid, gid};
@@ -420,7 +443,7 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
         std::string lower_key = utils::to_lower_copy(key);
 
         if (lower_key == "file")
-            config.file = value;
+            config.file = config_validator::validate_path(value, lower_key);
         else if (lower_key == "chmod")
             config.chmod = config_validator::validate_octal(value, lower_key);
         else if (lower_key == "chown") {
@@ -433,7 +456,7 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
 }
 
 /**
- * @brief Parses the [supervisord] section of the configuration file.
+ * @brief Parses the [taskmasterd] section of the configuration file.
  *
  * Extracts and validates key configuration values like `logfile`, `umask`,
  * `nodaemon`, `silent`, `minfds`, `minprocs`, `user`, `directory`, and
@@ -441,31 +464,35 @@ void parse_unix_http_server(TaskmasterConfig &config, const ConfigSection &secti
  * fields in the TaskmasterConfig object.
  *
  * @param config Reference to the TaskmasterConfig structure to populate.
- * @param section The parsed key-value pairs from the [supervisord] section.
+ * @param section The parsed key-value pairs from the [taskmasterd] section.
  */
-void parse_supervisord(TaskmasterConfig &config, const ConfigSection &section) {
+void parse_taskmasterd(TaskmasterConfig &config, const ConfigSection &section) {
     for (const auto &[key, value] : section.key_values) {
         std::string lower_key = utils::to_lower_copy(key);
 
-        if (lower_key == "logfile")
-            config.logfile = config_validator::validate_path(value, lower_key);
-        else if (lower_key == "umask")
+        if (lower_key == "logfile") {
+            auto abs_path  = config_validator::validate_path(value, lower_key);
+            config.logfile = config_validator::validate_folder(abs_path, lower_key);
+        } else if (lower_key == "umask")
             config.umask = config_validator::validate_octal(value, lower_key);
         else if (lower_key == "nodaemon")
             config.nodaemon = config_validator::validate_bool(value, lower_key);
-        else if (lower_key == "silent")
-            config.silent = config_validator::validate_bool(value, lower_key);
-        else if (lower_key == "minfds") {
+        else if (lower_key == "silent") {
+            config.silent  = config_validator::validate_bool(value, lower_key);
+            Logger::silent = config.silent;
+        } else if (lower_key == "minfds") {
             config.minfds = config_validator::validate_integer(value, lower_key);
             config_validator::validate_minfds(config.minfds);
         } else if (lower_key == "minprocs") {
             config.minprocs = config_validator::validate_integer(value, lower_key);
             config_validator::validate_minprocs(config.minprocs);
-        } else if (lower_key == "user")
+        } else if (lower_key == "pidfile")
+            config.pidfile = config_validator::validate_path(value, lower_key);
+        else if (lower_key == "user")
             config.user = config_validator::validate_user_field(value, lower_key);
-        else if (lower_key == "directory") {
+        else if (lower_key == "directory")
             config.directory = config_validator::validate_path(value, lower_key);
-        } else if (lower_key == "environment")
+        else if (lower_key == "environment")
             config.environment = config_parser::parse_environment(value);
     }
 }
@@ -515,6 +542,7 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
     std::map<std::string, ConfigSection> sections;
     std::string                          current_section;
     std::string                          line;
+    int                                  check = 0;
 
     if (!file.is_open()) throw std::runtime_error("Unable to open config file: " + filepath);
 
@@ -536,14 +564,22 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
 
     config.conf_path = filepath;
     for (auto &[section_name, section] : sections) {
-        if (section_name == "unix_http_server")
+        if (section_name == "unix_http_server") {
             parse_unix_http_server(config, section);
-        else if (section_name == "supervisord")
-            parse_supervisord(config, section);
-        else if (section_name == "include")
+            check += 1;
+        } else if (section_name == "taskmasterd") {
+            parse_taskmasterd(config, section);
+            check += 1;
+        } else if (section_name == "include") {
             parse_include(config, section);
-        else
+            check += 1;
+        } else
             Logger::warn("Unknown section [" + section_name + "] is ignored.");
+    }
+    if (check != 3) {
+        throw std::runtime_error(
+            "Missing of of the three sections [unix_http_server], [taskmasterd] or [include] in "
+            "main config file.");
     }
 
     return config;

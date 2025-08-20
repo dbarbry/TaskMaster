@@ -45,15 +45,16 @@ class TaskmasterConfig {
     std::string conf_path;
 
     // [supervisord] section
-    std::string                        logfile  = "/tmp/taskmaster.log";
-    mode_t                             umask    = 022;
-    bool                               nodaemon = false;
-    bool                               silent   = false;
-    int                                minfds   = 1024;
-    int                                minprocs = 200;
-    std::optional<std::string>         user;
-    std::optional<std::string>         directory;
-    std::map<std::string, std::string> environment;
+    std::string                                       logfile  = "/tmp/taskmasterd.log";
+    mode_t                                            umask    = 022;
+    bool                                              nodaemon = false;
+    bool                                              silent   = false;
+    std::string                                       pidfile  = "/tmp/taskmasterd.pid";
+    int                                               minfds   = 1024;
+    int                                               minprocs = 200;
+    std::optional<std::string>                        user;
+    std::optional<std::string>                        directory;
+    std::optional<std::map<std::string, std::string>> environment;
 
     // [include] section
     std::string files = "/etc/supervisor/conf.d/*.conf";
@@ -91,7 +92,7 @@ class TaskmasterConfig {
         int                      ret = glob(pattern.c_str(), GLOB_TILDE, nullptr, &glob_result);
 
         if (ret != 0) {
-            std::cerr << "Error reading pattern: " << pattern << std::endl;
+            Logger::error("Error reading pattern: " + pattern);
             globfree(&glob_result);
             return program_names;
         }

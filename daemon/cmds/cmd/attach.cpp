@@ -23,8 +23,6 @@ std::string attachCommand(std::vector<std::string> words, int client_fd) {
     }
 
     master_fd = active_programs[service_name];
-    std::cout << "[SERVER] Attaching to service: " << service_name << " (PTY FD: " << master_fd
-              << ")" << std::endl;
     if (master_fd < 0) return "Error: Invalid PTY file descriptor.\n";
 
     if (attached_fds.find(service_name) != attached_fds.end()) {
@@ -36,8 +34,6 @@ std::string attachCommand(std::vector<std::string> words, int client_fd) {
     if (dup_master < 0) return "Error: Failed to duplicate PTY descriptor.\n";
 
     attached_fds[service_name] = dup_master;
-    std::cout << "[SERVER] Attaching to service: " << service_name << " (PTY FD DUP: " << dup_master
-              << ")" << std::endl;
 
     iov.iov_base       = buf;
     iov.iov_len        = sizeof(buf);

@@ -13,12 +13,5 @@ std::map<std::string, std::vector<std::string>> commandParsing(std::string cmd) 
         parsedCommand["args"].push_back(word);
     }
 
-    std::cout << "[DEBUG] Command parsed: " << parsedCommand["command"][0] << std::endl;
-    std::cout << "[DEBUG] Args: ";
-    for (const auto &arg : parsedCommand["args"]) {
-        std::cout << arg << " ";
-    }
-    std::cout << std::endl;
-
     return parsedCommand;
 }

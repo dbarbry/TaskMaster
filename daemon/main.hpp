@@ -15,12 +15,18 @@
 #include <ctime>
 #include <filesystem>
 #include <iostream>
+#include <optional>
+#include <string>
 #include <thread>
 
 #include "cmds/cmds.hpp"
 #include "launch/config_program.hpp"
 
 const std::string& getConfigPath();
-void run_server(TaskmasterConfig& config);
+void               daemonize(TaskmasterConfig& config);
+void               apply_runtime_settings(TaskmasterConfig& config);
+void               run_server(TaskmasterConfig& config);
+void               cleanup(std::optional<TaskmasterConfig*> config);
+void               register_signal_handlers(void);
 
 #endif  // MAIN_HPP

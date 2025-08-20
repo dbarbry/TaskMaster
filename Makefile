@@ -88,6 +88,10 @@ client:
 .PHONY: client
 
 server:
+	@if ! getent group taskmaster > /dev/null; then \
+		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' does not exist, creating..."; \
+		sudo groupadd taskmaster; \
+	fi
 	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
     if [ "$$PID" ]; then \
         echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
@@ -102,13 +106,16 @@ server:
 .PHONY: server
 
 kill:
-	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
-    if [ -z "$$PID" ]; then \
-        echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
-    else \
-        echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
-        kill $$PID; \
-    fi
+	@PID=$$(ps -eo pid,args | grep "[d]aemon.out" | grep -v grep | awk '{print $$1}'); \
+	if [ -z "$$PID" ]; then \
+		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
+	else \
+		if ! sudo kill $$PID 2>/dev/null; then \
+			echo "$(RED)[ERROR] :$(RST) Failed to kill daemon (need root?)$(RED)\033[56G[✘]$(RST)"; \
+			exit 1; \
+		fi; \
+		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
+	fi
 .PHONY: kill
 
 clean:
@@ -130,19 +137,16 @@ re: fclean
 	$(MAKE) all
 .PHONY: re
 
-# Modification de la cible tsan pour utiliser la variable make directement
 tsan: fclean
 	@$(MAKE) all FLAGS="$(FLAGS) $(TSAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with ThreadSanitizer$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: tsan
 
-# Ajout d'une cible pour compiler sans sanitizer
 nosani: fclean
 	@$(MAKE) all FLAGS="$(filter-out $(TSAN_FLAGS), $(FLAGS))"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled without sanitizers$(BGREEN)\033[56G[✔]$(RST)"
 .PHONY: nosani
 
-# Modification similaire pour les autres sanitizers
 asan: fclean
 	@$(MAKE) all FLAGS="$(FLAGS) $(ASAN_FLAGS)"
 	@echo "$(BGREEN)[INFO] :$(RST) Compiled with AddressSanitizer$(BGREEN)\033[56G[✔]$(RST)"

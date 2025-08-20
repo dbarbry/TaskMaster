@@ -5,6 +5,7 @@
 #include <string>
 
 #include "./config_program.hpp"
+#include "./logger.hpp"
 
 /**
  * @brief Parse une ligne de configuration au format "clé=valeur"
@@ -14,7 +15,7 @@
 std::optional<std::pair<std::string, std::string>> parse_config_line(const std::string& line) {
     size_t delimiter_pos = line.find('=');
     if (delimiter_pos == std::string::npos) {
-        std::cerr << "Invalid key=value syntax: " << line << std::endl;
+        Logger::error("Invalid key=value syntax: " + line);
         return std::nullopt;
     }
 
@@ -71,7 +72,7 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
     std::string                          current_section;
 
     if (!file.is_open()) {
-        std::cerr << "Failed to open config file: " << filepath << std::endl;
+        Logger::error("Failed to open config file: " + filepath);
         return programs;
     }
 
@@ -96,7 +97,7 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
 
             size_t end_pos = line.find(']');
             if (end_pos == std::string::npos) {
-                std::cerr << "Invalid section syntax: " << line << std::endl;
+                Logger::error("Invalid section syntax: " + line);
                 continue;
             }
             current_section = line.substr(1, end_pos - 1);
@@ -150,13 +151,12 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 } else if (key == "env" || key == "environment") {  // Support both names
                     current_config.setEnvironment(parse_environment(value));
                 } else {
-                    std::cerr << "Unknown configuration key: " << key << std::endl;
+                    Logger::error("Unknown configuration key: " + key);
                 }
             } catch (const std::invalid_argument& e) {
-                std::cerr << "Invalid value for " << key << ": " << value << " (" << e.what() << ")"
-                          << std::endl;
+                Logger::error("Invalid value for " + key + ": " + value + " (" + e.what() + ")");
             } catch (const std::exception& e) {
-                std::cerr << "Error processing key " << key << ": " << e.what() << std::endl;
+                Logger::error("Error processing key " + key + ": " + e.what());
             }
         }
     }
@@ -175,9 +175,8 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
  */
 void log_config(const std::map<std::string, ProgramConfig>& programs) {
     for (const auto& [name, config] : programs) {
-        std::cout << "Program: " << name << std::endl;
+        Logger::info("Program: " + name);
         config.logConfig();
-        std::cout << std::endl;
     }
 }
 
@@ -192,8 +191,7 @@ std::map<std::string, ProgramConfig> parsing(std::string filename) {
     // Filtrer les configurations invalides
     for (auto it = programs.begin(); it != programs.end();) {
         if (!it->second.isValid()) {
-            std::cerr << "Invalid configuration for service: " << it->first << ". Service skipped."
-                      << std::endl;
+            Logger::error("Invalid configuration for service: " + it->first + ". Service skipped.");
             it = programs.erase(it);
         } else {
             ++it;
@@ -202,8 +200,8 @@ std::map<std::string, ProgramConfig> parsing(std::string filename) {
 
     // Vérifier qu'il reste au moins un programme valide
     if (programs.empty()) {
-        std::cerr << "No valid service configuration found. Exiting..." << std::endl;
-        exit(1);
+        Logger::error("No valid service configuration found. Exiting...");
+        exit(EXIT_FAILURE);
     }
 
     return programs;

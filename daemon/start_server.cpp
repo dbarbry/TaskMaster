@@ -1,61 +1,118 @@
 #include "logger.hpp"
 #include "main.hpp"
 
-#define LOG_PATH "/home/dhaya/taskmaster/log"
-#define SOCKET_PATH "/tmp/taskmaster_socket"
 #define BUFFER_SIZE 1024
 
-void daemonize(void) {
-    char        log_filename[256];
-    std::string path_filename;
-    struct tm  *time_info;
-    int         log_fd;
+void apply_runtime_settings(TaskmasterConfig &config) {
+    if (config.environment.has_value()) {
+        for (const auto &[key, value] : config.environment.value()) {
+            if (setenv(key.c_str(), value.c_str(), 1) != 0) {
+                Logger::error("Failed to set environment variable: " + key);
+                std::exit(EXIT_FAILURE);
+            }
+        }
+    }
+    umask(config.umask);
+
+    if (config.directory.has_value()) {
+        if (chdir(config.directory->c_str()) < 0) {
+            Logger::error("chdir failed: " + std::string(strerror(errno)));
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        if (chdir("/tmp") < 0) {
+            Logger::error("chdir failed: " + std::string(strerror(errno)));
+            exit(EXIT_FAILURE);
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    if (config.user.has_value()) {
+        struct passwd *pw = getpwnam(config.user->c_str());
+        if (!pw) {
+            Logger::error("Invalid user in config: " + *config.user);
+            exit(EXIT_FAILURE);
+        }
+        if (setgid(pw->pw_gid) != 0 || initgroups(pw->pw_name, pw->pw_gid) != 0 ||
+            setuid(pw->pw_uid) != 0) {
+            Logger::error("Failed to drop privileges to user " + *config.user + ": " +
+                          strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        Logger::info("Running as user: " + *config.user);
+    }
+
+    std::ofstream pidf(config.pidfile);
+    if (!pidf) {
+        Logger::error("Cannot write PID file: " + config.pidfile);
+        exit(EXIT_FAILURE);
+    }
+    pidf << getpid() << std::endl;
+    pidf.close();
+}
+
+std::string get_logfile_name(TaskmasterConfig &config) {
+    time_t      now       = time(nullptr);
+    struct tm  *time_info = localtime(&now);
+    std::string logfile_name;
+    char        date_str[64];
+
+    strftime(date_str, sizeof(date_str), "log-%Y_%m_%d-daemon.txt", time_info);
+    logfile_name = config.logfile;
+    if (!logfile_name.empty() && logfile_name.back() != '/') logfile_name += '/';
+    logfile_name += date_str;
+
+    Logger::info("Logfile located at: " + logfile_name);
+
+    return logfile_name;
+}
+
+void daemonize(TaskmasterConfig &config) {
     pid_t       pid;
-    time_t      now;
+    int         log_fd;
+    std::string logfile_name;
 
     pid = fork();
     if (pid < 0) {
         Logger::error("fork failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     if (pid > 0) exit(0);
 
     if (setsid() < 0) {
         Logger::error("setsid failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
-    pid = fork();
+    logfile_name = get_logfile_name(config);
+    pid          = fork();
     if (pid < 0) {
         Logger::error("fork failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-    if (pid > 0) {
-        exit(0);
-    }
-
-    umask(0);
-
-    if (chdir("/") < 0) {
-        Logger::error("chdir failed: " + std::string(strerror(errno)));
-        exit(1);
-    }
+    if (pid > 0) exit(0);
 
     for (int fd = sysconf(_SC_OPEN_MAX); fd >= 0; fd--) {
         close(fd);
     }
 
-    now       = time(nullptr);
-    time_info = localtime(&now);
-    strftime(log_filename, sizeof(log_filename), "/log-%Y_%m_%d-daemon.txt", time_info);
-    path_filename.append(LOG_PATH);
-    path_filename.append(log_filename);
-    log_fd = open(path_filename.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    log_fd = open(logfile_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, config.chmod);
+    if (log_fd < 0) {
+        Logger::error("Failed to open log file: " + std::string(strerror(errno)));
+        exit(EXIT_FAILURE);
+    }
 
-    if (log_fd < 0) exit(1);
+    if (config.chown.has_value()) {
+        if (chown(logfile_name.c_str(), config.get_socket_uid().value_or(getuid()),
+                  config.get_socket_gid().value_or(getgid())) < 0) {
+            Logger::error("chown failed: " + std::string(strerror(errno)));
+            close(log_fd);
+            exit(EXIT_FAILURE);
+        }
+    }
 
     dup2(log_fd, STDOUT_FILENO);
     dup2(log_fd, STDERR_FILENO);
@@ -98,23 +155,43 @@ void handle_client(int client_fd, int server_fd, TaskmasterConfig &config) {
 void run_server(TaskmasterConfig &config) {
     int                server_fd, client_fd;
     struct sockaddr_un address;
+    const std::string  socket_path = config.file;
+
+    std::ofstream pidf(config.pidfile);
+    if (!pidf) {
+        Logger::error("Error: cannot write PID file: " + config.pidfile + ". Check permissions.");
+        exit(EXIT_FAILURE);
+    }
+    pidf << getpid() << std::endl;
+    pidf.close();
 
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         Logger::error("socket failed: " + std::string(strerror(errno)));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    unlink(SOCKET_PATH);
+    unlink(socket_path.c_str());
 
     memset(&address, 0, sizeof(address));
     address.sun_family = AF_UNIX;
-    strncpy(address.sun_path, SOCKET_PATH, sizeof(address.sun_path) - 1);
+    strncpy(address.sun_path, socket_path.c_str(), sizeof(address.sun_path) - 1);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         Logger::error("bind failed: " + std::string(strerror(errno)));
         exit(EXIT_FAILURE);
     }
-    chmod(SOCKET_PATH, 0777);
+
+    if (chmod(config.file.c_str(), config.chmod) < 0) {
+        Logger::error("chmod failed: " + std::string(strerror(errno)));
+        exit(EXIT_FAILURE);
+    }
+    if (config.chown.has_value()) {
+        if (chown(config.file.c_str(), config.get_socket_uid().value_or(getuid()),
+                  config.get_socket_gid().value_or(getgid())) < 0) {
+            Logger::error("chown failed: " + std::string(strerror(errno)));
+            exit(EXIT_FAILURE);
+        }
+    }
 
     if (listen(server_fd, 5) < 0) {
         Logger::error("listen failed: " + std::string(strerror(errno)));
@@ -142,5 +219,5 @@ void run_server(TaskmasterConfig &config) {
     }
 
     if (server_fd >= 0) close(server_fd);
-    unlink(SOCKET_PATH);
+    unlink(socket_path.c_str());
 }

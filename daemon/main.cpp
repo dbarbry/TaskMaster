@@ -5,7 +5,7 @@
 
 static std::string g_config_file_path;
 
-const std::string& getConfigPath() {
+const std::string &getConfigPath() {
     return g_config_file_path;
 }
 
@@ -37,13 +37,12 @@ int main(int ac, char **av) {
         return 1;
     }
     Logger::info(".conf : " + std::string(av[1]));
-
-        g_config_file_path = av[1];
-    Logger::info(".conf : " + g_config_file_path);
+    register_signal_handlers();
 
     try {
         config = parse_taskmaster_conf(av[1]);
         Logger::info("Configuration file parsed successfully.");
+        cleanup(&config);
     } catch (const std::exception &e) {
         Logger::error("Error parsing config file: " + std::string(e.what()));
         return 1;
@@ -62,7 +61,12 @@ int main(int ac, char **av) {
     log_config(config.programs);
     std::thread program_thread(exec_programs, config.programs);
 
-    // daemonize();
+    if (!config.nodaemon)
+        daemonize(config);
+    else
+        Logger::info("Logfile only works in daemonized mode.");
+
+    apply_runtime_settings(config);
     run_server(config);
 
     program_thread.join();
