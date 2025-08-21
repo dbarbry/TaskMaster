@@ -13,6 +13,8 @@ make fclean                 - to clean everything
 make clean_log              - to clean logs
 ```
 
+IMPORTANT: If you change pidfile in the config file you must change it in the Makefile as well at the PID_PATH, or kill won't work.
+
 In order to use clang-format file:
 
 Install C/C++ extension

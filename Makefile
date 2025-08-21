@@ -33,6 +33,8 @@ OBJ_CLIENT_REP	=	obj_$(NAME_CLIENT)
 OBJ_SERVER_REP	=	obj_$(NAME_SERVER)
 NAME_LOG		=	log
 
+PID_PATH		=	/tmp/taskmaterd.pid
+
 all: print_header $(NAME)
 .PHONY: all
 
@@ -106,15 +108,17 @@ server:
 .PHONY: server
 
 kill:
-	@PID=$$(ps -eo pid,args | grep "[d]aemon.out" | grep -v grep | awk '{print $$1}'); \
-	if [ -z "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
+	@if [ ! -f "$(PIDFILE)" ]; then \
+		echo "$(RED)[ERROR] :$(RST) No PID file found$(RED)\033[56G[✘]$(RST)"; \
 	else \
+		PID=$$(cat $(PIDFILE)); \
 		if ! sudo kill $$PID 2>/dev/null; then \
 			echo "$(RED)[ERROR] :$(RST) Failed to kill daemon (need root?)$(RED)\033[56G[✘]$(RST)"; \
 			exit 1; \
+		else \
+			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
+			rm -f /tmp/taskmasterd.pid; \
 		fi; \
-		echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
 	fi
 .PHONY: kill
 
