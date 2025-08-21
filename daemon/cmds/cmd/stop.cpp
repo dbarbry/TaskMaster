@@ -1,6 +1,5 @@
 #include "../../logger.hpp"
 #include "../cmds.hpp"
-#include "../service_state.hpp"
 
 std::string stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                         const std::map<std::string, ProgramConfig>            &programs) {
@@ -31,22 +30,9 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
 
     const ProgramConfig &config      = it->second;
     std::string          signalName  = config.getStopsignalString();
-    int                  signalValue = SIGTERM;
+    EStopsignal          signalValue = EStopsignal::TERM;
 
-    if (signalName == "TERM")
-        signalValue = SIGTERM;
-    else if (signalName == "INT")
-        signalValue = SIGINT;
-    else if (signalName == "QUIT")
-        signalValue = SIGQUIT;
-    else if (signalName == "KILL")
-        signalValue = SIGKILL;
-    else if (signalName == "HUP")
-        signalValue = SIGHUP;
-    else if (signalName == "USR1")
-        signalValue = SIGUSR1;
-    else if (signalName == "USR2")
-        signalValue = SIGUSR2;
+    signalValue = string_to_stopsignal(signalName);
 
     std::vector<pid_t> pidsToStop;
     {
@@ -63,7 +49,7 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
         Logger::info(requestedProgram + ": sending signal " + signalName + " to PID " +
                      std::to_string(pid));
 
-        if (kill(pid, signalValue) != 0) {
+        if (kill(pid, to_raw_signal(signalValue)) != 0) {
             std::string errorMsg = requestedProgram + ": failed to send signal to PID " +
                                    std::to_string(pid) + ": " + strerror(errno);
             Logger::error(errorMsg);

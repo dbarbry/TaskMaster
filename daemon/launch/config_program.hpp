@@ -37,7 +37,15 @@ enum class EAutorestart {
     UNEXPECTED  // "unexpected"
 };
 
-enum class EStopsignal { TERM, HUP, INT, QUIT, KILL, USR1, USR2 };
+enum class EStopsignal {
+    TERM = SIGTERM,
+    HUP  = SIGHUP,
+    INT  = SIGINT,
+    QUIT = SIGQUIT,
+    KILL = SIGKILL,
+    USR1 = SIGUSR1,
+    USR2 = SIGUSR2
+};
 
 // Fonctions utilitaires pour la conversion entre enum et string
 inline std::string autorestart_to_string(EAutorestart value) {
@@ -98,6 +106,10 @@ inline EStopsignal string_to_stopsignal(const std::string& value) {
         return EStopsignal::USR2;
     else
         return EStopsignal::TERM;
+}
+
+inline int to_raw_signal(EStopsignal sig) {
+    return static_cast<int>(sig);
 }
 
 class ProgramConfig {

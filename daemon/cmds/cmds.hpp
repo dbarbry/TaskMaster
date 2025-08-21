@@ -27,6 +27,7 @@
 #include "../cmds/service_types.hpp"
 #include "../launch/config_global.hpp"
 #include "../launch/config_program.hpp"
+#include "../logger.hpp"
 #include "../main.hpp"
 #include "./service_state.hpp"
 
@@ -51,7 +52,7 @@ std::string statusCommand(const std::map<std::string, std::vector<std::string>> 
 std::string reloadCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                           std::map<std::string, ProgramConfig>                  &programs,
                           const TaskmasterConfig                                &config);
-                          
+
 std::string rereadCommand(TaskmasterConfig &config);
 std::string updateCommand(TaskmasterConfig &config);
 bool        isAlreadyRunning(const std::string &programPath);
