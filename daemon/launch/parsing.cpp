@@ -198,11 +198,7 @@ std::map<std::string, ProgramConfig> parsing(std::string filename) {
         }
     }
 
-    // Vérifier qu'il reste au moins un programme valide
-    if (programs.empty()) {
-        Logger::error("No valid service configuration found. Exiting...");
-        exit(EXIT_FAILURE);
-    }
+    if (programs.empty()) Logger::error("No programs in memory yet.");
 
     return programs;
 }
