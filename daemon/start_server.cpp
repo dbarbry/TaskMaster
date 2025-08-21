@@ -20,11 +20,10 @@ void apply_runtime_settings(TaskmasterConfig &config) {
             exit(EXIT_FAILURE);
         }
     } else {
-        if (chdir("/tmp") < 0) {
+        if (chdir("/") < 0) {
             Logger::error("chdir failed: " + std::string(strerror(errno)));
             exit(EXIT_FAILURE);
         }
-        exit(EXIT_FAILURE);
     }
 
     if (config.user.has_value()) {
@@ -41,14 +40,6 @@ void apply_runtime_settings(TaskmasterConfig &config) {
         }
         Logger::info("Running as user: " + *config.user);
     }
-
-    std::ofstream pidf(config.pidfile);
-    if (!pidf) {
-        Logger::error("Cannot write PID file: " + config.pidfile);
-        exit(EXIT_FAILURE);
-    }
-    pidf << getpid() << std::endl;
-    pidf.close();
 }
 
 std::string get_logfile_name(TaskmasterConfig &config) {
@@ -95,9 +86,18 @@ void daemonize(TaskmasterConfig &config) {
     }
     if (pid > 0) exit(0);
 
-    for (int fd = sysconf(_SC_OPEN_MAX); fd >= 0; fd--) {
-        close(fd);
+    unlink(config.pidfile.c_str());  // in case meh
+    std::ofstream pidf(config.pidfile);
+    if (!pidf) {
+        Logger::error("Cannot write PID file: " + config.pidfile);
+        exit(EXIT_FAILURE);
     }
+    pidf << getpid() << std::endl;
+    pidf.close();
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
 
     log_fd = open(logfile_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, config.chmod);
     if (log_fd < 0) {
@@ -157,14 +157,6 @@ void run_server(TaskmasterConfig &config) {
     struct sockaddr_un address;
     const std::string  socket_path = config.file;
 
-    std::ofstream pidf(config.pidfile);
-    if (!pidf) {
-        Logger::error("Error: cannot write PID file: " + config.pidfile + ". Check permissions.");
-        exit(EXIT_FAILURE);
-    }
-    pidf << getpid() << std::endl;
-    pidf.close();
-
     if ((server_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         Logger::error("socket failed: " + std::string(strerror(errno)));
         exit(EXIT_FAILURE);
@@ -220,4 +212,5 @@ void run_server(TaskmasterConfig &config) {
 
     if (server_fd >= 0) close(server_fd);
     unlink(socket_path.c_str());
+    unlink(config.pidfile.c_str());
 }
