@@ -6,8 +6,7 @@
 #include "../logger.hpp"
 #include "./config_program.hpp"
 
-std::map<std::string, int> active_programs;
-volatile sig_atomic_t      child_exited = 0;
+volatile sig_atomic_t child_exited = 0;
 
 void sigchld_handler(int sig) {
     (void)sig;
@@ -92,14 +91,7 @@ void set_environment(const std::map<std::string, std::string> &env,
     envp.push_back(nullptr);
 }
 
-void redirect_output(int pty_fd, const std::string &stdout_file, const std::string &stderr_file) {
-    if (pty_fd >= 0) {
-        dup2(pty_fd, STDIN_FILENO);
-        dup2(pty_fd, STDOUT_FILENO);
-        dup2(pty_fd, STDERR_FILENO);
-        return;
-    }
-
+void redirect_output(const std::string &stdout_file, const std::string &stderr_file) {
     int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
     int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
@@ -121,41 +113,25 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
     std::vector<std::unique_ptr<char[]>> storage, env_storage;
     std::vector<char *>                  av, envp;
     pid_t                                pid;
-    int                                  master_fd, slave_fd;
-
-    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {
-        Logger::error("Failed to create PTY for: " + name);
-        return -1;
-    }
 
     pid = fork();
     if (pid < 0) {
         Logger::error("Fork failed for: " + name);
         return -1;
     }
-    if (pid == 0) {
-        // Code exécuté dans le processus enfant
+    if (pid == 0) {  // child
         Logger::info("Launching: " + name + " (" + config.getCommand() + ")");
 
-        close(master_fd);
-        setsid();
-        ioctl(slave_fd, TIOCSCTTY, 0);
-
-        // Configuration de l'umask avant tout
         mode_t mask = strtol(config.getUmask().c_str(), nullptr, 8);
         umask(mask);
 
-        // Changement de répertoire de travail
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {
             Logger::error("Failed to change directory to " + config.getWorkingDir());
             _exit(1);
         }
 
-        // Redirection des sorties standard
-        redirect_output(slave_fd, config.getStdoutLogfile(), config.getStderrLogfile());
-        close(slave_fd);
+        redirect_output(config.getStdoutLogfile(), config.getStderrLogfile());
 
-        // Configuration de l'environnement et de la commande
         set_environment(config.getEnvironment(), env_storage, envp);
         parse_command(config.getCommand(), storage, av);
 
@@ -173,20 +149,6 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         _exit(1);
     }
 
-    close(slave_fd);
-    {
-        // std::lock_guard<std::mutex> lock(serviceMutex);
-        if (active_programs.count(name) > 0) {
-            Logger::info("[PTY] Closing previous PTY for " + name);
-            close(active_programs[name]);
-            active_programs.erase(name);
-        }
-    }
-
-    Logger::info("[SERVER] Storing PTY FD for: " + name + " (FD: " + std::to_string(master_fd) +
-                 ")");
-    active_programs[name] = master_fd;
-
     return pid;
 }
 
@@ -195,13 +157,11 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
     std::map<pid_t, std::string>                 pidToService;
     std::map<std::string, const ProgramConfig *> serviceConfig;
 
-    {
-        for (const auto &[serviceName, serviceInfo] : runningServices) {
-            for (const auto &process : serviceInfo.processes) {
-                pid_t pid = process.pid;
-                if (std::find(pids->begin(), pids->end(), pid) != pids->end()) {
-                    pidToService[pid] = serviceName;
-                }
+    for (const auto &[serviceName, serviceInfo] : runningServices) {
+        for (const auto &process : serviceInfo.processes) {
+            pid_t pid = process.pid;
+            if (std::find(pids->begin(), pids->end(), pid) != pids->end()) {
+                pidToService[pid] = serviceName;
             }
         }
     }
@@ -214,6 +174,13 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
 
         for (auto it = pids->begin(); it != pids->end();) {
             pid = waitpid(*it, &status, WNOHANG);
+
+            // avoid busy-wait
+            if (!child_exited) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+            child_exited = 0;
 
             if (pid > 0) {
                 int exitCode = 0;
@@ -231,14 +198,6 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                 if (pidToService.count(pid) > 0) {
                     std::string serviceName = pidToService[pid];
 
-                    {
-                        if (active_programs.count(serviceName) > 0) {
-                            close(active_programs[serviceName]);
-                            active_programs.erase(serviceName);
-                            Logger::info("[PTY] Closed PTY for service: " + serviceName);
-                        }
-                    }
-
                     updateProcessState(serviceName, pid, ProcessState::STOPPED, exitCode);
                     Logger::info("[MONITOR] Service " + serviceName + " has " +
                                  std::to_string(getServiceInstanceCount(serviceName)) +
@@ -246,8 +205,7 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                 }
 
                 it = pids->erase(it);
-            } else if (pid < 0 && errno != EINTR) {
-                // Erreur avec waitpid
+            } else if (pid < 0 && errno != EINTR) {  // waitpid error
                 Logger::error("[MONITOR] Error in waitpid: " + std::string(strerror(errno)));
                 it = pids->erase(it);
             } else {
