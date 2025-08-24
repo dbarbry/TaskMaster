@@ -44,7 +44,6 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
                          const std::map<std::string, ProgramConfig>            &programs);
 std::string stopCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                         const std::map<std::string, ProgramConfig>            &programs);
-std::string attachCommand(std::vector<std::string> words, int client_fd);
 
 std::string statusCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                           const std::map<std::string, ProgramConfig>            &programs);
