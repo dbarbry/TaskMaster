@@ -109,7 +109,7 @@ client:
 server:
 	@if ! $(GROUP_EXISTS); then \
 		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' does not exist, creating..."; \
-		$(CREATE_GROUP); \
+$(CREATE_GROUP); \
 	else \
 		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' exists."; \
 	fi; \

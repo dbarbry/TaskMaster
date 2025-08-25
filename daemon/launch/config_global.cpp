@@ -562,7 +562,12 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
         sections[current_section].key_values.emplace_back(*kv_opt);
     }
 
-    config.conf_path = filepath;
+    try {
+        config.conf_path = std::filesystem::absolute(filepath).lexically_normal().string();
+    } catch (const std::exception &e) {
+        throw std::runtime_error("Failed to resolve absolute path for config file: " + filepath +
+                                 " (" + e.what() + ")");
+    }
     for (auto &[section_name, section] : sections) {
         if (section_name == "unix_http_server") {
             parse_unix_http_server(config, section);

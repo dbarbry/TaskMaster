@@ -60,20 +60,20 @@ std::string handle_cmd(std::string cmd, int server_fd, int client_fd,
     }
 
     const std::string& command = words[0];
-    if (command == "reread") {
+    if (command == "reread")
         response << rereadCommand(config);
-    } else if (command == "update") {
+    else if (command == "update")
         response << updateCommand(config);
-    } else if (command == "status") {
+    else if (command == "status")
         response << statusCommand(parsedCommand, config.programs);
-    } else if (command == "start") {
+    else if (command == "start")
         response << startCommand(parsedCommand, config.programs);
-    } else if (command == "stop") {
+    else if (command == "stop")
         response << stopCommand(parsedCommand, config.programs);
-    } else if (command == "restart") {
+    else if (command == "restart")
         response << restartCommand(parsedCommand, config.programs);
-    } else if (command == "reload")
-        response << reload(words);
+    else if (command == "reload")
+        response << reloadCommand(parsedCommand, config.programs, config);
     else if (command == "shutdown")
         response << shutdown(words, server_fd);
     else if (command == "reload")

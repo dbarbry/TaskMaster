@@ -43,7 +43,7 @@ std::string reloadCommand(const std::map<std::string, std::vector<std::string>>&
 
     try {
         new_config = parse_taskmaster_conf(config.conf_path);
-        Logger::info("Configuration successfully reloaded from file.");
+        Logger::info("Configuration successfully reloaded from file: " + config.conf_path);
     } catch (const std::exception& e) {
         std::string error = "Failed to reload configuration: ";
         response << error << e.what();
@@ -51,10 +51,12 @@ std::string reloadCommand(const std::map<std::string, std::vector<std::string>>&
         return response.str();
     }
 
-    for (const auto& [name, old_config] : programs) {
-        auto it = new_config.programs.find(name);
-        if (it != new_config.programs.end()) {
-            auto result = isProgramConfigurationChanged(name, old_config, it->second);
+    for (const auto& [name, new_prog] : new_config.programs) {
+        auto it = programs.find(name);
+        if (it != programs.end()) {
+            Logger::debug("Comparing " + it->second.getWorkingDir() + " and " +
+                          new_prog.getWorkingDir());
+            auto result = isProgramConfigurationChanged(name, it->second, new_prog);
             if (result.has_value()) {
                 changed_programs.push_back(result.value());
                 running[name] = getServiceInstanceCount(name) > 0;
