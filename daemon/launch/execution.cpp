@@ -92,6 +92,12 @@ void set_environment(const std::map<std::string, std::string> &env,
 }
 
 void redirect_output(const std::string &stdout_file, const std::string &stderr_file) {
+    // Ensure child does not read from daemon's stdin (be deterministic on macOS/Linux)
+    int stdin_fd = open("/dev/null", O_RDONLY);
+    if (stdin_fd >= 0) {
+        dup2(stdin_fd, STDIN_FILENO);
+        close(stdin_fd);
+    }
     int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
     int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 

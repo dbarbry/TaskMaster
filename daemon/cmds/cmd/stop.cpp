@@ -37,23 +37,36 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
     std::vector<pid_t> pidsToStop;
     {
         for (const auto &process : runningServices[requestedProgram].processes) {
-            pidsToStop.push_back(process.pid);
+            if (process.state == ProcessState::RUNNING || process.state == ProcessState::STARTING ||
+                process.state == ProcessState::RESTARTING) {
+                pidsToStop.push_back(process.pid);
+            }
         }
     }
 
-    updateServiceState(requestedProgram, ProcessState::STOPPED);
     response << requestedProgram << ": stopping..." << std::endl;
 
     // Envoyer le signal à tous les processus du service
     for (pid_t pid : pidsToStop) {
+        // Si le processus n'existe déjà plus, inutile d'envoyer le signal
+        if (kill(pid, 0) != 0 && errno == ESRCH) {
+            Logger::info(requestedProgram + ": PID " + std::to_string(pid) + " already exited");
+            continue;
+        }
+
         Logger::info(requestedProgram + ": sending signal " + signalName + " to PID " +
                      std::to_string(pid));
 
         if (kill(pid, to_raw_signal(signalValue)) != 0) {
-            std::string errorMsg = requestedProgram + ": failed to send signal to PID " +
-                                   std::to_string(pid) + ": " + strerror(errno);
-            Logger::error(errorMsg);
-            response << errorMsg << std::endl;
+            if (errno == ESRCH) {
+                Logger::info(requestedProgram + ": PID " + std::to_string(pid) +
+                             " already exited");
+            } else {
+                std::string errorMsg = requestedProgram + ": failed to send signal to PID " +
+                                       std::to_string(pid) + ": " + strerror(errno);
+                Logger::error(errorMsg);
+                response << errorMsg << std::endl;
+            }
         }
     }
     int stoptime = config.getStopwaitsecs();
@@ -64,7 +77,7 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
     while (!pidsToStop.empty() && (time(nullptr) - start_time) < stoptime) {
         for (auto it = pidsToStop.begin(); it != pidsToStop.end();) {
             if (kill(*it, 0) != 0 && errno == ESRCH) {
-                // Le processus n'existe plus
+                updateProcessState(requestedProgram, *it, ProcessState::STOPPED, 0);
                 it = pidsToStop.erase(it);
             } else {
                 ++it;
@@ -81,16 +94,25 @@ std::string stopCommand(const std::map<std::string, std::vector<std::string>> &c
 
         for (pid_t pid : pidsToStop) {
             if (kill(pid, SIGKILL) != 0) {
-                std::string killErrorMsg = requestedProgram + ": failed to kill PID " +
-                                           std::to_string(pid) + ": " + strerror(errno);
-                Logger::error(killErrorMsg);
-                response << killErrorMsg << std::endl;
+                if (errno == ESRCH) {
+                    // déjà mort
+                    updateProcessState(requestedProgram, pid, ProcessState::STOPPED, 0);
+                } else {
+                    std::string killErrorMsg = requestedProgram + ": failed to kill PID " +
+                                               std::to_string(pid) + ": " + strerror(errno);
+                    Logger::error(killErrorMsg);
+                    response << killErrorMsg << std::endl;
+                }
+            } else {
+                // signal envoyé, considérer STOPPED; le monitor ajustera si actif
+                updateProcessState(requestedProgram, pid, ProcessState::STOPPED, 0);
             }
         }
     } else {
         std::string stoppedMsg = requestedProgram + ": stopped";
         Logger::info(stoppedMsg);
         response << stoppedMsg << std::endl;
+        updateServiceState(requestedProgram, ProcessState::STOPPED);
     }
 
     return response.str();
