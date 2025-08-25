@@ -28,9 +28,13 @@ void run_server(int fd, const std::string &socket_path) {
 
     if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         std::cerr << "No TaskMaster server found at " << socket_path << std::endl;
-        std::cerr << "You may need to be added in the taskmaster group: " << std::endl;
-        std::cerr << "  sudo usermod -aG taskmaster <your_name> " << std::endl;
-        std::cerr << "  Then reload your terminal " << std::endl;
+        std::cerr << "You may need to be in the 'taskmaster' group:" << std::endl;
+#ifdef __APPLE__
+        std::cerr << "  sudo dseditgroup -o edit -a $USER -t user taskmaster" << std::endl;
+#else
+        std::cerr << "  sudo usermod -aG taskmaster $USER" << std::endl;
+#endif
+        std::cerr << "  Then open a new terminal session" << std::endl;
         exit(1);
     }
 }

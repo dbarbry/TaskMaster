@@ -34,8 +34,13 @@ bool addServicePid(const std::string& name, pid_t pid) {
 }
 
 bool isServiceRunning(const std::string& name) {
-    if (runningServices.count(name) > 0) {
-        return !runningServices[name].processes.empty();
+    if (runningServices.count(name) == 0) return false;
+    const auto& processes = runningServices[name].processes;
+    for (const auto& p : processes) {
+        if (p.state == ProcessState::RUNNING || p.state == ProcessState::STARTING ||
+            p.state == ProcessState::RESTARTING) {
+            return true;
+        }
     }
     return false;
 }

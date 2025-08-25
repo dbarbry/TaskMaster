@@ -9,6 +9,9 @@ RST			=	\033[0m
 SRC_CLIENT		=	$(shell find ./$(NAME_CLIENT) -type f -name "*.cpp" | cut -c 10-)
 HDR_CLIENT		= 	$(shell find ./$(NAME_CLIENT) -type f -name "*.hpp" | cut -c 3-)
 
+UNAME_S := $(shell uname -s)
+
+
 SRC_SERVER		=	$(shell find ./$(NAME_SERVER) -type f -name "*.cpp" | cut -c 10-)
 HDR_SERVER		= 	$(shell find ./$(NAME_SERVER) -type f -name "*.hpp" | cut -c 3-)
 
@@ -33,7 +36,21 @@ OBJ_CLIENT_REP	=	obj_$(NAME_CLIENT)
 OBJ_SERVER_REP	=	obj_$(NAME_SERVER)
 NAME_LOG		=	log
 
-PID_PATH		=	/tmp/taskmaterd.pid
+PID_PATH		=	/tmp/taskmasterd.pid
+
+# OS detection (Darwin = macOS, Linux otherwise)
+UNAME_S := $(shell uname -s)
+
+# Cross-platform group management
+ifeq ($(UNAME_S),Darwin)
+	GROUP_EXISTS = dscl . -read /Groups/taskmaster >/dev/null 2>&1
+	CREATE_GROUP = sudo dseditgroup -o create taskmaster
+	ADD_USER     = sudo dseditgroup -o edit -a $(USER) -t user taskmaster
+else
+	GROUP_EXISTS = getent group taskmaster >/dev/null 2>&1
+	CREATE_GROUP = sudo groupadd taskmaster
+	ADD_USER     = sudo usermod -aG taskmaster $(USER)
+endif
 
 all: print_header $(NAME)
 .PHONY: all
@@ -90,15 +107,19 @@ client:
 .PHONY: client
 
 server:
-	@if ! getent group taskmaster > /dev/null; then \
+	@if ! $(GROUP_EXISTS); then \
 		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' does not exist, creating..."; \
-		sudo groupadd taskmaster; \
-	fi
-	@PID=$$(pgrep -x $(NAME_SERVER).out); \
-	if [ "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) A server is already running (PID: $$PID)$(RED)\033[56G[✘]$(RST)"; \
-		exit 1; \
+$(CREATE_GROUP); \
+	else \
+		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' exists."; \
 	fi; \
+	$(ADD_USER) || true; \
+	echo "$(GRN)[LOG]  :$(RST) Ensured user '$(USER)' is in group 'taskmaster' (open new shell to apply)."
+	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
+    if [ "$$PID" ]; then \
+        echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
+        exit 1; \
+    fi; \
     if [ ! -f "./$(NAME_SERVER).out" ]; then \
         echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
         exit 1; \
@@ -108,19 +129,55 @@ server:
 .PHONY: server
 
 kill:
-	@PID=$$(pgrep -x $(NAME_SERVER).out); \
-	if [ -z "$$PID" ]; then \
-		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
-	else \
-		if sudo kill -9 $$PID 2>/dev/null; then \
-			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID(s): $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
-			rm -f /tmp/taskmasterd.pid; \
+	@if [ -f "$(PID_PATH)" ]; then \
+		PID=$$(cat $(PID_PATH)); \
+		if kill -0 $$PID 2>/dev/null; then \
+			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)..."; \
+			kill $$PID 2>/dev/null || true; \
+			for i in 1 2 3 4 5 6 7 8 9 10; do \
+				if kill -0 $$PID 2>/dev/null; then sleep 0.2; else break; fi; \
+			done; \
+			if kill -0 $$PID 2>/dev/null; then \
+				echo "$(RED)[WARN] :$(RST) Force killing daemon (PID: $$PID)..."; \
+				kill -9 $$PID 2>/dev/null || true; \
+			fi; \
 		else \
-			echo "$(RED)[ERROR] :$(RST) Failed to kill daemon (need root?)$(RED)\033[56G[✘]$(RST)"; \
-			exit 1; \
+			echo "$(RED)[WARN] :$(RST) PID $$PID from file not running"; \
+		fi; \
+		rm -f $(PID_PATH); \
+	else \
+		PIDS=$$(ps -eo pid,comm | awk '/[d]aemon\.out/{print $$1}'); \
+		if [ -n "$$PIDS" ]; then \
+			echo "$(GRN)[LOG]  :$(RST) Stopping all daemon.out processes: $$PIDS"; \
+			for P in $$PIDS; do \
+				kill $$P 2>/dev/null || true; \
+			done; \
+			sleep 0.3; \
+			for P in $$PIDS; do \
+				if kill -0 $$P 2>/dev/null; then kill -9 $$P 2>/dev/null || true; fi; \
+			done; \
+		else \
+			echo "$(RED)[ERROR] :$(RST) No PID file found and no running daemon.out$(RED)\033[56G[✘]$(RST)"; \
 		fi; \
 	fi
 .PHONY: kill
+
+stop: kill
+.PHONY: stop
+
+status:
+	@PIDS=$$(ps -eo pid,ppid,comm | awk '/[d]aemon\.out/{print $$1}'); \
+	if [ -n "$$PIDS" ]; then \
+		echo "$(GRN)[STATUS]:$(RST) daemon is running (PIDs: $$PIDS)"; \
+		ps -eo pid,ppid,comm | awk '/[d]aemon\.out/'; \
+	else \
+		echo "$(RED)[STATUS]:$(RST) daemon is not running"; \
+	fi; \
+	if [ -f "$(PID_PATH)" ]; then echo "$(BLU)[INFO]  :$(RST) PID file: $(PID_PATH) -> $$(cat $(PID_PATH))"; fi
+.PHONY: status
+
+kill-all: kill
+.PHONY: kill-all
 
 clean:
 	$(RM) $(OBJ_CLIENT) $(OBJ_SERVER)
