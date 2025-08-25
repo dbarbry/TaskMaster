@@ -112,7 +112,7 @@ kill:
 	if [ -z "$$PID" ]; then \
 		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
 	else \
-		if pkill -x $(NAME_SERVER).out; then \
+		if sudo kill -9 $$PID 2>/dev/null; then \
 			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID(s): $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
 			rm -f /tmp/taskmasterd.pid; \
 		else \
