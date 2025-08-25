@@ -94,11 +94,11 @@ server:
 		echo "$(GRN)[LOG] :$(RST) Group 'taskmaster' does not exist, creating..."; \
 		sudo groupadd taskmaster; \
 	fi
-	@PID=$$(ps -eo pid,comm | grep "[d]aemon.out" | awk '{print $$1}'); \
-    if [ "$$PID" ]; then \
-        echo "$(RED)[ERROR] :$(RST) A server is already running$(RED)\033[56G[✘]$(RST)"; \
-        exit 1; \
-    fi; \
+	@PID=$$(pgrep -x $(NAME_SERVER).out); \
+	if [ "$$PID" ]; then \
+		echo "$(RED)[ERROR] :$(RST) A server is already running (PID: $$PID)$(RED)\033[56G[✘]$(RST)"; \
+		exit 1; \
+	fi; \
     if [ ! -f "./$(NAME_SERVER).out" ]; then \
         echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
         exit 1; \
@@ -108,16 +108,16 @@ server:
 .PHONY: server
 
 kill:
-	@if [ ! -f "$(PIDFILE)" ]; then \
-		echo "$(RED)[ERROR] :$(RST) No PID file found$(RED)\033[56G[✘]$(RST)"; \
+	@PID=$$(pgrep -x $(NAME_SERVER).out); \
+	if [ -z "$$PID" ]; then \
+		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
 	else \
-		PID=$$(cat $(PIDFILE)); \
-		if ! sudo kill $$PID 2>/dev/null; then \
+		if sudo kill -9 $$PID 2>/dev/null; then \
+			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID(s): $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
+			rm -f /tmp/taskmasterd.pid; \
+		else \
 			echo "$(RED)[ERROR] :$(RST) Failed to kill daemon (need root?)$(RED)\033[56G[✘]$(RST)"; \
 			exit 1; \
-		else \
-			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
-			rm -f /tmp/taskmasterd.pid; \
 		fi; \
 	fi
 .PHONY: kill
