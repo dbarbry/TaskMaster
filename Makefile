@@ -127,37 +127,17 @@ $(CREATE_GROUP); \
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_SERVER).out $(RUN_ARGS) || true
 .PHONY: server
-
 kill:
-	@if [ -f "$(PID_PATH)" ]; then \
-		PID=$$(cat $(PID_PATH)); \
-		if kill -0 $$PID 2>/dev/null; then \
-			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID: $$PID)..."; \
-			kill $$PID 2>/dev/null || true; \
-			for i in 1 2 3 4 5 6 7 8 9 10; do \
-				if kill -0 $$PID 2>/dev/null; then sleep 0.2; else break; fi; \
-			done; \
-			if kill -0 $$PID 2>/dev/null; then \
-				echo "$(RED)[WARN] :$(RST) Force killing daemon (PID: $$PID)..."; \
-				kill -9 $$PID 2>/dev/null || true; \
-			fi; \
-		else \
-			echo "$(RED)[WARN] :$(RST) PID $$PID from file not running"; \
-		fi; \
-		rm -f $(PID_PATH); \
+	@PID=$$(pgrep -x $(NAME_SERVER).out); \
+	if [ -z "$$PID" ]; then \
+		echo "$(RED)[ERROR] :$(RST) No running daemon found$(RED)\033[56G[✘]$(RST)"; \
 	else \
-		PIDS=$$(ps -eo pid,comm | awk '/[d]aemon\.out/{print $$1}'); \
-		if [ -n "$$PIDS" ]; then \
-			echo "$(GRN)[LOG]  :$(RST) Stopping all daemon.out processes: $$PIDS"; \
-			for P in $$PIDS; do \
-				kill $$P 2>/dev/null || true; \
-			done; \
-			sleep 0.3; \
-			for P in $$PIDS; do \
-				if kill -0 $$P 2>/dev/null; then kill -9 $$P 2>/dev/null || true; fi; \
-			done; \
+		if sudo kill -9 $$PID 2>/dev/null; then \
+			echo "$(GRN)[LOG]  :$(RST) Stopping daemon (PID(s): $$PID)...$(BGREEN)\033[56G[✔]$(RST)"; \
+			rm -f /tmp/taskmasterd.pid; \
 		else \
-			echo "$(RED)[ERROR] :$(RST) No PID file found and no running daemon.out$(RED)\033[56G[✘]$(RST)"; \
+			echo "$(RED)[ERROR] :$(RST) Failed to kill daemon (need root?)$(RED)\033[56G[✘]$(RST)"; \
+			exit 1; \
 		fi; \
 	fi
 .PHONY: kill
