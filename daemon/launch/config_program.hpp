@@ -1,5 +1,5 @@
-#ifndef LAUNCH_HPP
-#define LAUNCH_HPP
+#ifndef CONFIG_PROGRAM_HPP
+#define CONFIG_PROGRAM_HPP
 
 #ifdef __APPLE__
 #include <util.h>
@@ -210,4 +210,4 @@ void  setup_signal_handlers();
 pid_t launch_program(const std::string& name, const ProgramConfig& config);
 std::map<std::string, ProgramConfig> parsing(std::string filename);
 
-#endif  // LAUNCH_HPP
+#endif  // CONFIG_PROGRAM_HPP
