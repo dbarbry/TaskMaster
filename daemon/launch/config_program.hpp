@@ -116,7 +116,7 @@ class ProgramConfig {
    private:
     std::string                        command;
     int                                numprocs = 1;
-    std::optional<std::string>         umask;
+    mode_t                             umask    = 022;
     std::string                        workingdir;
     bool                               autostart   = true;
     EAutorestart                       autorestart = EAutorestart::UNEXPECTED;
@@ -133,7 +133,7 @@ class ProgramConfig {
     // Getters
     std::string  getCommand() const { return command; }
     int          getNumprocs() const { return numprocs; }
-    std::string  getUmask() const { return umask.value_or("022"); }
+    mode_t       getUmask() const { return umask; }
     std::string  getWorkingDir() const { return workingdir; }
     bool         getAutostart() const { return autostart; }
     EAutorestart getAutorestart() const { return autorestart; }
@@ -151,7 +151,7 @@ class ProgramConfig {
     // Setters
     void setCommand(const std::string& value) { command = value; }
     void setNumprocs(int value) { numprocs = value; }
-    void setUmask(const std::string& value) { umask = value; }
+    void setUmask(const mode_t& value) { umask = value; }
     void setWorkingDir(const std::string& value) { workingdir = value; }
     void setAutostart(bool value) { autostart = value; }
     void setAutorestart(EAutorestart value) { autorestart = value; }

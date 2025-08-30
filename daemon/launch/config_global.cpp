@@ -132,6 +132,10 @@ TaskmasterConfig parse_taskmaster_conf(const std::string &filepath) {
             current_section           = utils::to_lower_copy(current_section);
             sections[current_section] = ConfigSection {current_section, {}};
             continue;
+        } else if (line.front() == '[' && line.back() != ']' ||
+                   line.front() != '[' && line.back() == ']') {
+            Logger::error("Invalid program syntax: " + line);
+            continue;
         }
 
         auto kv_opt = config_parser::parse_line(line);
