@@ -30,7 +30,6 @@
 
 #include "../cmds/service_types.hpp"
 #include "../logger.hpp"
-
 enum class EAutorestart {
     ALWAYS,     // "true"
     NEVER,      // "false"
@@ -168,19 +167,19 @@ class ProgramConfig {
 
     void logConfig() const {
         Logger::info("command: " + command);
-        Logger::info("numprocs: " + numprocs);
-        Logger::info("umask: " + getUmask());
+        Logger::info("numprocs: " + std::to_string(numprocs));
+        Logger::info("umask: " + std::to_string(getUmask()));
         Logger::info("workingdir: " + workingdir);
         Logger::info("autostart: " + getAutostart());
         Logger::info("autorestart: " + getAutorerestartString());
-        Logger::info("startretries: " + startretries);
-        Logger::info("startsecs: " + startsecs);
+        Logger::info("startretries: " + std::to_string(startretries));
+        Logger::info("startsecs: " + std::to_string(startsecs));
         Logger::info("stopsignal: " + getStopsignalString());
-        Logger::info("stopwaitsecs: " + stopwaitsecs);
+        Logger::info("stopwaitsecs: " + std::to_string(stopwaitsecs));
         Logger::info("stdout_logfile: " + stdout_logfile);
         Logger::info("stderr_logfile: " + stderr_logfile);
         Logger::info("exitcodes: ");
-        for (const auto& exitcode : exitcodes) Logger::info(exitcode + " ");
+        for (const auto& exitcode : exitcodes) Logger::info("  " + std::to_string(exitcode));
         Logger::info("environment: ");
         for (const auto& env : environment) Logger::info("  " + env.first + "=" + env.second);
     }

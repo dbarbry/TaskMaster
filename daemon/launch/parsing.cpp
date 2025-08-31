@@ -61,6 +61,20 @@ std::string to_lower_copy(const std::string &input) {
 }
 
 /**
+ * @brief Create a uppercase copy of a string.
+ *
+ * @param input The input string to convert.
+ * @return A new string where all alphabetic characters are uppercase.
+ */
+std::string to_upper_copy(const std::string &input) {
+    std::string result = input;
+
+    std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+
+    return result;
+}
+
+/**
  * @brief Determine whether a line is a comment or empty after trimming.
  *
  * Comments are defined as lines that start with '#' or ';'.
@@ -147,6 +161,18 @@ std::map<std::string, std::string> parse_environment(const std::string &line) {
     }
 
     return env_map;
+}
+
+/**
+ * @brief Parse commands variables from a string of format:
+ *
+ * @param line The environment line string.
+ * @return Map of key-value environment pairs.
+ */
+std::string parse_command(const std::string &line) {
+    std::string trimmed = utils::trim(line);
+
+    return trimmed;
 }
 
 }  // namespace config_parser

@@ -43,7 +43,7 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
             try {
                 // Configuration options
                 if (key == "cmd") {
-                    current_program.setCommand(value);
+                    current_program.setCommand(config_parser::parse_command(value));
                 } else if (key == "numprocs") {
                     current_program.setNumprocs(config_validator::validate_integer(value, key));
                 } else if (key == "umask") {
@@ -52,6 +52,8 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                     current_program.setWorkingDir(config_validator::validate_path(value, key));
                 } else if (key == "autostart") {
                     current_program.setAutostart(config_validator::validate_bool(value, key));
+                } else if (key == "autorestart") {
+                    current_program.setAutorestart(string_to_autorestart(value));
                 } else if (key == "exitcodes") {
                     std::vector<int>  exitcodes;
                     std::stringstream ss(value);
@@ -66,7 +68,8 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 } else if (key == "starttime" || key == "startsecs") {  // Support both names
                     current_program.setStartsecs(config_validator::validate_integer(value, key));
                 } else if (key == "stopsignal") {
-                    current_program.setStopsignal(value);
+                    std::string upper_value = utils::to_upper_copy(value);
+                    current_program.setStopsignal(string_to_stopsignal(upper_value));
                 } else if (key == "stoptime" || key == "stopwaitsecs") {  // Support both names
                     current_program.setStopwaitsecs(config_validator::validate_integer(value, key));
                 } else if (key == "stdout" || key == "stdout_logfile") {  // Support both names
