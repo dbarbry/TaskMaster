@@ -165,7 +165,8 @@ class ProgramConfig {
     void setStderrLogfile(const std::string& value) { stderr_logfile = value; }
     void setEnvironment(const std::map<std::string, std::string>& value) { environment = value; }
 
-    void logConfig() const {
+    void logConfig(const std::string& value) const {
+        Logger::info("Program: [ " + value + " ]");
         Logger::info("command: " + command);
         Logger::info("numprocs: " + std::to_string(numprocs));
         Logger::info("umask: " + std::to_string(getUmask()));
@@ -184,19 +185,19 @@ class ProgramConfig {
         for (const auto& env : environment) Logger::info("  " + env.first + "=" + env.second);
     }
 
-    bool isValid() {
+    bool isValid(const std::string& value) {
         bool valid = true;
 
         if (command.empty()) {
-            Logger::error("Command is required.");
+            Logger::error("Command is required for: " + value);
             valid = false;
         }
         if (workingdir.empty()) {
-            Logger::error("Workingdir is required.");
+            Logger::error("Workingdir is required for: " + value);
             valid = false;
         }
         if (environment.empty()) {
-            Logger::warn("No environment defined.");
+            Logger::warn("No environment defined for: " + value);
         }
 
         return valid;

@@ -102,10 +102,7 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
  * @param programs Map des programmes et leurs configurations
  */
 void log_config(const std::map<std::string, ProgramConfig>& programs) {
-    for (const auto& [name, config] : programs) {
-        Logger::info("Program: " + name);
-        config.logConfig();
-    }
+    for (const auto& [name, config] : programs) config.logConfig(name);
 }
 
 /**
@@ -118,7 +115,7 @@ std::map<std::string, ProgramConfig> parsing(std::string filename) {
 
     // Filtrer les configurations invalides
     for (auto it = programs.begin(); it != programs.end();) {
-        if (!it->second.isValid()) {
+        if (!it->second.isValid(it->first)) {
             Logger::error("Invalid configuration for service: " + it->first + ". Service skipped.");
             it = programs.erase(it);
         } else {

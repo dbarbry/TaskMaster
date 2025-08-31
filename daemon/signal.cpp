@@ -10,11 +10,9 @@ void cleanup(std::optional<TaskmasterConfig*> config = std::nullopt) {
     if (cfg) {
         if (!cfg->pidfile.empty()) {
             unlink(cfg->pidfile.c_str());
-            Logger::info("Removed PID file: " + cfg->pidfile);
         }
         if (!cfg->file.empty()) {
             unlink(cfg->file.c_str());
-            Logger::info("Removed socket file: " + cfg->file);
         }
     }
     fflush(NULL);
