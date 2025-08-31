@@ -82,9 +82,9 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                     Logger::error("Unknown configuration key: " + key);
                 }
             } catch (const std::invalid_argument& e) {
-                Logger::error("Invalid value for " + key + ": " + value + " (" + e.what() + ")");
+                Logger::error(e.what());
             } catch (const std::exception& e) {
-                Logger::error("Error processing key " + key + ": " + e.what());
+                Logger::error(e.what());
             }
         }
     }
