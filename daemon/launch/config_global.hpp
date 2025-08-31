@@ -1,32 +1,9 @@
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
-
-#include <glob.h>
-#include <grp.h>
-#include <pwd.h>
-#include <sys/resource.h>
-#include <unistd.h>
-
-#include <algorithm>
-#include <cctype>
-#include <filesystem>
-#include <fstream>
-#include <map>
-#include <optional>
-#include <regex>
-#include <set>
-#include <sstream>
-#include <stdexcept>
-#include <string>
+#ifndef CONFIG_GLOBAL_HPP
+#define CONFIG_GLOBAL_HPP
 
 #include "config_program.hpp"
 #include "logger.hpp"
-
-namespace utils {
-std::vector<std::string> expand_glob(const std::string& pattern);
-std::string              to_lower_copy(const std::string& input);
-static std::string       trim(const std::string& line);
-}  // namespace utils
+#include "parsing.hpp"
 
 class TaskmasterConfig {
    public:
@@ -114,4 +91,4 @@ class TaskmasterConfig {
 
 TaskmasterConfig parse_taskmaster_conf(const std::string& filepath);
 
-#endif  // CONFIG_HPP
+#endif  // CONFIG_GLOBAL_HPP

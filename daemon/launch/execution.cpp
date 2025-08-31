@@ -128,7 +128,7 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
     if (pid == 0) {  // child
         Logger::info("Launching: " + name + " (" + config.getCommand() + ")");
 
-        mode_t mask = strtol(config.getUmask().c_str(), nullptr, 8);
+        mode_t mask = config.getUmask();
         umask(mask);
 
         if (!config.getWorkingDir().empty() && chdir(config.getWorkingDir().c_str()) != 0) {

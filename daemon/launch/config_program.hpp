@@ -1,5 +1,5 @@
-#ifndef LAUNCH_HPP
-#define LAUNCH_HPP
+#ifndef CONFIG_PROGRAM_HPP
+#define CONFIG_PROGRAM_HPP
 
 #ifdef __APPLE__
 #include <util.h>
@@ -30,7 +30,6 @@
 
 #include "../cmds/service_types.hpp"
 #include "../logger.hpp"
-
 enum class EAutorestart {
     ALWAYS,     // "true"
     NEVER,      // "false"
@@ -116,7 +115,7 @@ class ProgramConfig {
    private:
     std::string                        command;
     int                                numprocs = 1;
-    std::optional<std::string>         umask;
+    mode_t                             umask    = 022;
     std::string                        workingdir;
     bool                               autostart   = true;
     EAutorestart                       autorestart = EAutorestart::UNEXPECTED;
@@ -133,7 +132,7 @@ class ProgramConfig {
     // Getters
     std::string  getCommand() const { return command; }
     int          getNumprocs() const { return numprocs; }
-    std::string  getUmask() const { return umask.value_or("022"); }
+    mode_t       getUmask() const { return umask; }
     std::string  getWorkingDir() const { return workingdir; }
     bool         getAutostart() const { return autostart; }
     EAutorestart getAutorestart() const { return autorestart; }
@@ -151,7 +150,7 @@ class ProgramConfig {
     // Setters
     void setCommand(const std::string& value) { command = value; }
     void setNumprocs(int value) { numprocs = value; }
-    void setUmask(const std::string& value) { umask = value; }
+    void setUmask(const mode_t& value) { umask = value; }
     void setWorkingDir(const std::string& value) { workingdir = value; }
     void setAutostart(bool value) { autostart = value; }
     void setAutorestart(EAutorestart value) { autorestart = value; }
@@ -166,38 +165,39 @@ class ProgramConfig {
     void setStderrLogfile(const std::string& value) { stderr_logfile = value; }
     void setEnvironment(const std::map<std::string, std::string>& value) { environment = value; }
 
-    void logConfig() const {
+    void logConfig(const std::string& value) const {
+        Logger::info("Program: [ " + value + " ]");
         Logger::info("command: " + command);
-        Logger::info("numprocs: " + numprocs);
-        Logger::info("umask: " + getUmask());
+        Logger::info("numprocs: " + std::to_string(numprocs));
+        Logger::info("umask: " + std::to_string(getUmask()));
         Logger::info("workingdir: " + workingdir);
         Logger::info("autostart: " + getAutostart());
         Logger::info("autorestart: " + getAutorerestartString());
-        Logger::info("startretries: " + startretries);
-        Logger::info("startsecs: " + startsecs);
+        Logger::info("startretries: " + std::to_string(startretries));
+        Logger::info("startsecs: " + std::to_string(startsecs));
         Logger::info("stopsignal: " + getStopsignalString());
-        Logger::info("stopwaitsecs: " + stopwaitsecs);
+        Logger::info("stopwaitsecs: " + std::to_string(stopwaitsecs));
         Logger::info("stdout_logfile: " + stdout_logfile);
         Logger::info("stderr_logfile: " + stderr_logfile);
         Logger::info("exitcodes: ");
-        for (const auto& exitcode : exitcodes) Logger::info(exitcode + " ");
+        for (const auto& exitcode : exitcodes) Logger::info("  " + std::to_string(exitcode));
         Logger::info("environment: ");
         for (const auto& env : environment) Logger::info("  " + env.first + "=" + env.second);
     }
 
-    bool isValid() {
+    bool isValid(const std::string& value) {
         bool valid = true;
 
         if (command.empty()) {
-            Logger::error("Command is required.");
+            Logger::error("Command is required for: " + value);
             valid = false;
         }
         if (workingdir.empty()) {
-            Logger::error("Workingdir is required.");
+            Logger::error("Workingdir is required for: " + value);
             valid = false;
         }
         if (environment.empty()) {
-            Logger::warn("No environment defined.");
+            Logger::warn("No environment defined for: " + value);
         }
 
         return valid;
@@ -210,4 +210,4 @@ void  setup_signal_handlers();
 pid_t launch_program(const std::string& name, const ProgramConfig& config);
 std::map<std::string, ProgramConfig> parsing(std::string filename);
 
-#endif  // LAUNCH_HPP
+#endif  // CONFIG_PROGRAM_HPP
