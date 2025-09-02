@@ -13,7 +13,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
 
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to start.");
-        response << "Error: No program specified to start." << std::endl;
+        response << "Error: No program specified to start.";
         return response.str();
     }
 
@@ -23,8 +23,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     auto it = programs.find(requestedProgram);
     if (it == programs.end()) {
         Logger::error("Program " + requestedProgram + " not found in configuration.");
-        response << "Error: Program " + requestedProgram + " not found in configuration."
-                 << std::endl;
+        response << "Error: Program " + requestedProgram + " not found in configuration.";
         return response.str();
     }
 
@@ -34,9 +33,8 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
     if (getServiceInstanceCount(requestedProgram) >= static_cast<size_t>(maxInstances)) {
         Logger::error("The program " + requestedProgram + " already has " +
                       std::to_string(maxInstances) + " instance(s) running!");
-        response << "Error: The program " + requestedProgram + " already has " +
-                        std::to_string(maxInstances) + " instance(s) running!"
-                 << std::endl;
+        response << "The program " + requestedProgram + " already has " +
+                        std::to_string(maxInstances) + " instance(s) running!";
         return response.str();
     }
 
@@ -92,13 +90,13 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
 
         if (successful_starts == remaining_instances) {
             response << "All " << successful_starts << " instance(s) of " << requestedProgram
-                     << " started successfully." << std::endl;
+                     << " started successfully.";
         } else {
             response << successful_starts << " of " << remaining_instances
-                     << " instance(s) started successfully." << std::endl;
+                     << " instance(s) started successfully.";
         }
     } else {
-        response << "Failed to start any instances of " << requestedProgram << std::endl;
+        response << "Failed to start any instances of " << requestedProgram;
     }
 
     return response.str();

@@ -7,7 +7,7 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
 
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to restart.");
-        response << "Error: No program specified to restart." << std::endl;
+        response << "Error: No program specified to restart.";
         return response.str();
     }
 
@@ -15,7 +15,7 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
 
     if (programs.find(programToRestart) == programs.end()) {
         Logger::error(programToRestart + ": ERROR (no such program)");
-        response << programToRestart + ": ERROR (no such program)" << std::endl;
+        response << programToRestart + ": ERROR (no such program)";
         return response.str();
     }
 
@@ -40,7 +40,7 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
     response << startResponse;
 
     Logger::info(programToRestart + ": started");
-    response << programToRestart + ": started" << std::endl;
+    response << programToRestart + ": started";
 
     return response.str();
 }

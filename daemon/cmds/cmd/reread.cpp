@@ -42,6 +42,7 @@ std::string rereadCommand(TaskmasterConfig& config) {
         Logger::info("No config updates to processes");
         response << "No config updates to processes" << std::endl;
     }
+    response << "Use update next to apply changes if any.";
 
     return response.str();
 }
