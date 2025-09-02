@@ -146,16 +146,19 @@ std::map<std::string, std::string> parse_environment(const std::string &line) {
     std::map<std::string, std::string> env_map;
     const std::regex                   env_regex(R"(([^= \t]+)=\"([^\"]*)\")");
 
-    auto begin = std::sregex_iterator(line.begin(), line.end(), env_regex);
-    auto end   = std::sregex_iterator();
+    std::stringstream ss(line);
+    std::string       token;
 
-    for (auto it = begin; it != end; ++it) {
-        std::smatch match = *it;
-        if (match.size() == 3) {
+    while (std::getline(ss, token, ',')) {
+        token = utils::trim(token);
+        if (token.empty()) continue;
+
+        std::smatch match;
+        if (std::regex_match(token, match, env_regex)) {
             std::string key = utils::trim(match[1].str());
             std::string val = match[2].str();
             if (!key.empty()) {
-                env_map[key] = val;  // overwrite duplicate, do we keep this ?
+                env_map[key] = val;  // overwrite duplicate
             }
         }
     }
