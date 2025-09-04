@@ -270,6 +270,9 @@ int validate_integer(const std::string &value, const std::string &field_name) {
         if (idx != value.size()) {
             throw std::runtime_error("Invalid integer format for '" + field_name + "': " + value);
         }
+        if (val < 0) {
+            throw std::runtime_error("Negative value not allowed for '" + field_name + "': " + value);
+        }
         return val;
     } catch (const std::invalid_argument &) {
         throw std::runtime_error("Invalid integer format for '" + field_name + "': " + value);
