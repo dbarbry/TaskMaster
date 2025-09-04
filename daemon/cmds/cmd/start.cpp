@@ -10,6 +10,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
                          const std::map<std::string, ProgramConfig>            &programs) {
     Logger::info("Starting command logic");
     std::ostringstream response;
+    std::string        requestedProgram;
 
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to start.");
@@ -17,7 +18,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
         return response.str();
     }
 
-    std::string requestedProgram = cmd.at("args")[0];
+    requestedProgram = cmd.at("args")[0];
     Logger::debug("Requested program: " + requestedProgram);
 
     auto it = programs.find(requestedProgram);
@@ -37,7 +38,6 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
                         std::to_string(maxInstances) + " instance(s) running!";
         return response.str();
     }
-
     setup_signal_handlers();
 
     auto pids = std::make_shared<std::vector<pid_t>>();
@@ -55,22 +55,25 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
 
         while (retries < max_retries) {
             pid = launch_program(requestedProgram, configFromFile);
-            if (pid > 0) break;
-            retries++;
-            incrementRetries(requestedProgram);
-        }
-
-        if (pid > 0) {
+            if (pid <= 0) {
+                Logger::error("Execution failed for program " + requestedProgram + " (attempt " +
+                              std::to_string(retries + 1) + ")");
+                retries++;
+                incrementRetries(requestedProgram, -1);
+                continue;
+            }
+            addServicePid(requestedProgram, pid, configFromFile.getStartsecs());
             pids->push_back(pid);
-            addServicePid(requestedProgram, pid);
-            updateServiceState(requestedProgram, ProcessState::RUNNING);
 
             Logger::info("Started program " + requestedProgram + " with PID " +
                          std::to_string(pid));
             response << "Started program " + requestedProgram + " with PID " + std::to_string(pid)
                      << std::endl;
             successful_starts++;
-        } else {
+            break;
+        }
+
+        if (pid <= 0 && retries >= max_retries) {
             Logger::error("Failed to start program " + requestedProgram + " after " +
                           std::to_string(max_retries) + " attempts.");
             response << "Failed to start program " + requestedProgram + " after " +

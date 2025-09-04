@@ -136,6 +136,12 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
             _exit(1);
         }
 
+        int fd = open("/dev/null", O_RDONLY);
+        if (fd >= 0) {
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+        }
+
         redirect_output(config.getStdoutLogfile(), config.getStderrLogfile());
 
         set_environment(config.getEnvironment(), env_storage, envp);
@@ -159,34 +165,18 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 }
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
-    // Fonction inchangée car elle n'utilise pas directement les méthodes renommées
-    std::map<pid_t, std::string>                 pidToService;
-    std::map<std::string, const ProgramConfig *> serviceConfig;
+    Logger::info("[MONITOR] Monitoring thread started");
 
-    for (const auto &[serviceName, serviceInfo] : runningServices) {
-        for (const auto &process : serviceInfo.processes) {
-            pid_t pid = process.pid;
-            if (std::find(pids->begin(), pids->end(), pid) != pids->end()) {
-                pidToService[pid] = serviceName;
-            }
+    while (true) {
+        std::vector<pid_t> currentPids;
+
+        {
+            std::lock_guard<std::mutex> lock(serviceMutex);
+            currentPids = *pids;
         }
-    }
-
-    Logger::info("[MONITOR] Started monitoring " + std::to_string(pids->size()) + " processes");
-
-    while (!pids->empty()) {
-        int   status;
-        pid_t pid;
-
-        for (auto it = pids->begin(); it != pids->end();) {
-            pid = waitpid(*it, &status, WNOHANG);
-
-            // avoid busy-wait
-            if (!child_exited) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                continue;
-            }
-            child_exited = 0;
+        for (auto it = currentPids.begin(); it != currentPids.end();) {
+            int   status;
+            pid_t pid = waitpid(*it, &status, WNOHANG);
 
             if (pid > 0) {
                 int exitCode = 0;
@@ -201,27 +191,47 @@ void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
                     exitCode = 128 + signal;
                 }
 
-                if (pidToService.count(pid) > 0) {
-                    std::string serviceName = pidToService[pid];
-
-                    updateProcessState(serviceName, pid, ProcessState::STOPPED, exitCode);
-                    Logger::info("[MONITOR] Service " + serviceName + " has " +
-                                 std::to_string(getServiceInstanceCount(serviceName)) +
-                                 " instances remaining");
+                for (auto &[serviceName, service] : runningServices) {
+                    for (auto &process : service.processes) {
+                        if (process.pid == pid) {
+                            process.state    = ProcessState::STOPPED;
+                            process.exitCode = exitCode;
+                            Logger::info("[MONITOR] Service " + serviceName + " has " +
+                                         std::to_string(getServiceInstanceCount(serviceName)) +
+                                         " instances remaining");
+                        }
+                    }
                 }
 
-                it = pids->erase(it);
-            } else if (pid < 0 && errno != EINTR) {  // waitpid error
+                std::lock_guard<std::mutex> lock(serviceMutex);
+                pids->erase(std::remove(pids->begin(), pids->end(), pid), pids->end());
+
+                it = currentPids.erase(it);
+            } else if (pid < 0 && errno != EINTR) {
                 Logger::error("[MONITOR] Error in waitpid: " + std::string(strerror(errno)));
-                it = pids->erase(it);
+                it = currentPids.erase(it);
             } else {
                 ++it;
             }
         }
+
+        std::lock_guard<std::mutex> lock(serviceMutex);
+        for (auto &[serviceName, service] : runningServices) {
+            for (auto &process : service.processes) {
+                if (process.state == ProcessState::STARTING) {
+                    time_t elapsed = std::time(nullptr) - process.startTime;
+                    if (elapsed >= service.startsecs) {
+                        process.state = ProcessState::RUNNING;
+                        Logger::info(serviceName + ": process " + std::to_string(process.pid) +
+                                     " has reached RUNNING state after " + std::to_string(elapsed) +
+                                     "s");
+                    }
+                }
+            }
+        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
-    Logger::info("[MONITOR] Monitoring thread finished");
 }
 
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
