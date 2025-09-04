@@ -47,24 +47,40 @@ std::string statusCommand(const std::map<std::string, std::vector<std::string>>&
     response << separator << std::endl;
 
     for (const auto& [name, info] : runningServices) {
-        int running = 0, stopped = 0, failed = 0;
+        int running = 0, starting = 0, restarting = 0, stopped = 0, failed = 0;
 
         for (const auto& proc : info.processes) {
-            if (proc.state == ProcessState::RUNNING)
-                running++;
-            else if (proc.state == ProcessState::STOPPED)
-                stopped++;
-            else if (proc.state == ProcessState::FATAL)
-                failed++;
+            switch (proc.state) {
+                case ProcessState::RUNNING:
+                    running++;
+                    break;
+                case ProcessState::STARTING:
+                    starting++;
+                    break;
+                case ProcessState::RESTARTING:
+                    restarting++;
+                    break;
+                case ProcessState::STOPPED:
+                    stopped++;
+                    break;
+                case ProcessState::FATAL:
+                    failed++;
+                    break;
+                default:
+                    break;
+            }
         }
 
         std::stringstream line;
         line << std::left << std::setw(35) << name;
 
-        if (running > 0) {
-            line << std::setw(12) << "RUNNING";
-            line << running << " instance(s), ";
-            line << stopped << " stopped, " << failed << " failed";
+        if (running > 0 || starting > 0 || restarting > 0) {
+            std::string statusStr = running > 0      ? "RUNNING"
+                                    : restarting > 0 ? "RESTARTING"
+                                                     : "STARTING";
+            line << std::setw(12) << statusStr;
+            line << running << " running, " << starting << " starting, " << restarting
+                 << " restarting, " << stopped << " stopped, " << failed << " failed";
         } else if (failed > 0) {
             line << std::setw(12) << "FATAL";
             line << "all processes have failed";
@@ -78,11 +94,10 @@ std::string statusCommand(const std::map<std::string, std::vector<std::string>>&
         response << lineStr << std::endl;
 
         for (const auto& proc : info.processes) {
-            if (proc.state == ProcessState::RUNNING) {
-                std::string procInfo = "  └─ pid " + std::to_string(proc.pid) + ", running";
-                Logger::info(procInfo);
-                response << procInfo << std::endl;
-            }
+            std::string stateStr = getStateString(proc.state);
+            std::string procInfo = "  └─ pid " + std::to_string(proc.pid) + ", " + stateStr;
+            Logger::info(procInfo);
+            response << procInfo << std::endl;
         }
     }
 

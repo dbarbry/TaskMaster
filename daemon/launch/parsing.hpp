@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <mutex>
 #include <optional>
 #include <regex>
 #include <set>

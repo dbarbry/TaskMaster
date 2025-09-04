@@ -6,7 +6,9 @@
 #include "../logger.hpp"
 #include "./config_program.hpp"
 
-volatile sig_atomic_t child_exited = 0;
+volatile sig_atomic_t                     child_exited = 0;
+extern std::mutex                         serviceMutex;
+extern std::map<std::string, ServiceInfo> runningServices;
 
 void sigchld_handler(int sig) {
     (void)sig;
@@ -43,7 +45,6 @@ int execvpe_compat(const char *file, char *const argv[], char *const envp[]) {
 
 void parse_command(const std::string &cmd, std::vector<std::unique_ptr<char[]>> &storage,
                    std::vector<char *> &av) {
-    // Fonction inchangée
     storage.clear();
     av.clear();
 
@@ -136,8 +137,13 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
             _exit(1);
         }
 
-        redirect_output(config.getStdoutLogfile(), config.getStderrLogfile());
+        int fd = open("/dev/null", O_RDONLY);
+        if (fd >= 0) {
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+        }
 
+        redirect_output(config.getStdoutLogfile(), config.getStderrLogfile());
         set_environment(config.getEnvironment(), env_storage, envp);
         parse_command(config.getCommand(), storage, av);
 
@@ -159,69 +165,65 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
 }
 
 void monitoring(std::shared_ptr<std::vector<pid_t>> pids) {
-    // Fonction inchangée car elle n'utilise pas directement les méthodes renommées
-    std::map<pid_t, std::string>                 pidToService;
-    std::map<std::string, const ProgramConfig *> serviceConfig;
+    Logger::info("[MONITOR] Monitoring thread started");
 
-    for (const auto &[serviceName, serviceInfo] : runningServices) {
-        for (const auto &process : serviceInfo.processes) {
-            pid_t pid = process.pid;
-            if (std::find(pids->begin(), pids->end(), pid) != pids->end()) {
-                pidToService[pid] = serviceName;
-            }
-        }
-    }
-
-    Logger::info("[MONITOR] Started monitoring " + std::to_string(pids->size()) + " processes");
-
-    while (!pids->empty()) {
-        int   status;
+    while (true) {
         pid_t pid;
+        int   status;
+        while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+            std::lock_guard<std::mutex> lock(serviceMutex);
 
-        for (auto it = pids->begin(); it != pids->end();) {
-            pid = waitpid(*it, &status, WNOHANG);
+            auto it = std::find(pids->begin(), pids->end(), pid);
+            if (it != pids->end()) pids->erase(it);
 
-            // avoid busy-wait
-            if (!child_exited) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                continue;
-            }
-            child_exited = 0;
+            int exitCode = WIFEXITED(status)     ? WEXITSTATUS(status)
+                           : WIFSIGNALED(status) ? 128 + WTERMSIG(status)
+                                                 : -1;
 
-            if (pid > 0) {
-                int exitCode = 0;
-                if (WIFEXITED(status)) {
-                    exitCode = WEXITSTATUS(status);
-                    Logger::info("[PID " + std::to_string(pid) +
-                                 "] exited with code: " + std::to_string(exitCode));
-                } else if (WIFSIGNALED(status)) {
-                    int signal = WTERMSIG(status);
-                    Logger::info("[PID " + std::to_string(pid) +
-                                 "] killed by signal: " + std::to_string(signal));
-                    exitCode = 128 + signal;
+            for (auto &[serviceName, service] : runningServices) {
+                for (auto &process : service.processes) {
+                    if (process.pid == pid) {
+                        process.state    = ProcessState::STOPPED;
+                        process.exitCode = exitCode;
+                        Logger::info("[MONITOR] Service " + serviceName + " has " +
+                                     std::to_string(getServiceInstanceCount(serviceName)) +
+                                     " instances remaining");
+                    }
                 }
-
-                if (pidToService.count(pid) > 0) {
-                    std::string serviceName = pidToService[pid];
-
-                    updateProcessState(serviceName, pid, ProcessState::STOPPED, exitCode);
-                    Logger::info("[MONITOR] Service " + serviceName + " has " +
-                                 std::to_string(getServiceInstanceCount(serviceName)) +
-                                 " instances remaining");
-                }
-
-                it = pids->erase(it);
-            } else if (pid < 0 && errno != EINTR) {  // waitpid error
-                Logger::error("[MONITOR] Error in waitpid: " + std::string(strerror(errno)));
-                it = pids->erase(it);
-            } else {
-                ++it;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
 
-    Logger::info("[MONITOR] Monitoring thread finished");
+        if (pid < 0 && errno != EINTR && errno != ECHILD) {
+            Logger::error("[MONITOR] waitpid error: " + std::string(strerror(errno)));
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(serviceMutex);
+            for (auto &[serviceName, service] : runningServices) {
+                for (auto &process : service.processes) {
+                    if (process.state == ProcessState::STARTING) {
+                        time_t elapsed = std::time(nullptr) - process.startTime;
+                        if (elapsed >= service.startsecs) {
+                            if (kill(process.pid, 0) == 0) {  // still alive
+                                process.state = ProcessState::RUNNING;
+                                Logger::info(serviceName + ": process " +
+                                             std::to_string(process.pid) +
+                                             " has reached RUNNING state after " +
+                                             std::to_string(elapsed) + "s");
+                            } else {
+                                process.state = ProcessState::STOPPED;
+                                Logger::info(serviceName + ": process " +
+                                             std::to_string(process.pid) +
+                                             " exited before reaching RUNNING");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // slightly faster monitoring
+    }
 }
 
 void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
@@ -232,20 +234,48 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
         const int max_retries   = config.getStartretries();
         int       nbr_instances = config.getNumprocs();
 
-        for (int i = 0; i < nbr_instances; i++) {
-            int   retries = 0;
-            pid_t pid;
-            while (retries < max_retries) {
-                pid = launch_program(name, config);
-                if (pid > 0) break;
-                retries++;
+        for (const auto &[name, config] : programs) {
+            int runningCount = getServiceInstanceCount(name);
+            int remaining    = config.getNumprocs() - runningCount;
+
+            if (remaining <= 0) {
+                Logger::info(name + ": already has " + std::to_string(runningCount) +
+                             " instance(s), skipping launch.");
+                continue;
+
+                Logger::info("Autostarting " + std::to_string(remaining) + " instance(s) of " +
+                             name);
+
+                for (int i = 0; i < remaining; i++) {
+                    int   retries = 0;
+                    pid_t pid     = -1;
+
+                    while (retries < config.getStartretries()) {
+                        pid = launch_program(name, config);
+                        if (pid > 0) break;  // success
+                        retries++;
+                        Logger::warn(name + ": retrying launch (" + std::to_string(retries) + "/" +
+                                     std::to_string(config.getStartretries()) + ")");
+                    }
+
+                    if (pid > 0) {
+                        std::lock_guard<std::mutex> lock(serviceMutex);
+                        addServicePid(name, pid, config.getStartsecs());
+                        Logger::info("Launched " + name + " with PID " + std::to_string(pid));
+                        pids->push_back(pid);
+                        updateServiceState(name, ProcessState::STARTING);
+                    } else {
+                        Logger::error("Failed to start " + name + " after " +
+                                      std::to_string(config.getStartretries()) + " retries.");
+                        if (getServiceInstanceCount(name) == 0) {
+                            updateServiceState(name, ProcessState::FATAL);
+                        }
+                    }
+                }
             }
-            if (pid > 0) {
-                pids->push_back(pid);
-            }
+
+            std::thread monitor_thread(monitoring, pids);
+            monitor_thread.detach();
         }
     }
-
-    std::thread monitor_thread(monitoring, pids);
-    monitor_thread.detach();
 }

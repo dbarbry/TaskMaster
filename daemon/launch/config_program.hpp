@@ -171,7 +171,7 @@ class ProgramConfig {
         Logger::info("numprocs: " + std::to_string(numprocs));
         Logger::info("umask: " + std::to_string(getUmask()));
         Logger::info("workingdir: " + workingdir);
-        Logger::info("autostart: " + getAutostart());
+        Logger::info("autostart: " + std::string(getAutostart() ? "true" : "false"));
         Logger::info("autorestart: " + getAutorerestartString());
         Logger::info("startretries: " + std::to_string(startretries));
         Logger::info("startsecs: " + std::to_string(startsecs));

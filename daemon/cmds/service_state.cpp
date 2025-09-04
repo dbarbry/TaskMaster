@@ -1,14 +1,13 @@
 #include "service_state.hpp"
 
-#include <algorithm>
-
 #include "../launch/config_program.hpp"
 #include "../logger.hpp"
 
 std::map<std::string, ServiceInfo> runningServices;
 std::mutex                         serviceMutex;
+bool                               monitoringStarted = false;
 
-bool addServicePid(const std::string& name, pid_t pid) {
+bool addServicePid(const std::string& name, pid_t pid, int startsecs) {
     auto& processes = runningServices[name].processes;
     for (const auto& process : processes) {
         if (process.pid == pid) {
@@ -18,7 +17,7 @@ bool addServicePid(const std::string& name, pid_t pid) {
 
     ProcessInfo newProcess;
     newProcess.pid       = pid;
-    newProcess.state     = ProcessState::RUNNING;
+    newProcess.state     = ProcessState::STARTING;
     newProcess.retries   = 0;
     newProcess.startTime = std::time(nullptr);
     newProcess.exitCode  = 0;
@@ -26,7 +25,8 @@ bool addServicePid(const std::string& name, pid_t pid) {
     processes.push_back(newProcess);
 
     if (runningServices[name].name.empty()) {
-        runningServices[name].name = name;
+        runningServices[name].name      = name;
+        runningServices[name].startsecs = startsecs;
     }
 
     Logger::info(name + ": added process " + std::to_string(pid));
@@ -45,23 +45,31 @@ bool isServiceRunning(const std::string& name) {
     return false;
 }
 
-void incrementRetries(const std::string& name) {
+void incrementRetries(const std::string& name, pid_t pid) {
+    std::lock_guard<std::mutex> lock(serviceMutex);
+
     if (runningServices.count(name) > 0) {
-        for (auto& process : runningServices[name].processes) {
-            process.retries++;
+        auto& processes = runningServices[name].processes;
+        for (auto& process : processes) {
+            if (process.pid == pid) {
+                process.retries++;
+                Logger::info(name + ": incremented retry count for pid " + std::to_string(pid));
+                return;
+            }
         }
-        Logger::info(name + ": incremented retry count");
     }
 }
 
 bool removeServicePid(const std::string& name, pid_t pid) {
+    std::lock_guard<std::mutex> lock(serviceMutex);
+
     if (runningServices.count(name) == 0) return false;
 
     auto& processes = runningServices[name].processes;
     for (auto it = processes.begin(); it != processes.end(); ++it) {
         if (it->pid == pid) {
             it->state = ProcessState::STOPPED;
-            Logger::info(name + ": removed process " + std::to_string(pid));
+            Logger::info(name + ": marked process " + std::to_string(pid) + " as STOPPED");
             return true;
         }
     }
@@ -113,17 +121,33 @@ void updateServiceState(const std::string& name, ProcessState state) {
     Logger::info(name + ": state changed to " + stateStr);
 }
 
-// Ajouter une nouvelle fonction pour mettre à jour l'état d'un processus spécifique
 bool updateProcessState(const std::string& name, pid_t pid, ProcessState state, int exitCode) {
-    // std::lock_guard<std::mutex> lock(serviceMutex);
+    std::lock_guard<std::mutex> lock(serviceMutex);
 
     if (runningServices.count(name) == 0) return false;
 
-    auto& processes = runningServices[name].processes;
+    auto& service   = runningServices[name];
+    auto& processes = service.processes;
     for (auto& process : processes) {
         if (process.pid == pid) {
             process.state    = state;
             process.exitCode = exitCode;
+
+            if (state == ProcessState::STOPPED) {
+                bool anyRunning = false;
+                for (const auto& p : processes) {
+                    if (p.state == ProcessState::RUNNING || p.state == ProcessState::STARTING ||
+                        p.state == ProcessState::RESTARTING) {
+                        anyRunning = true;
+                        break;
+                    }
+                }
+                if (!anyRunning) {
+                    service.overallState = ProcessState::STOPPED;
+                    Logger::info(name + ": state changed to STOPPED (all processes stopped)");
+                }
+            }
+
             return true;
         }
     }

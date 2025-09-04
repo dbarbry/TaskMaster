@@ -18,6 +18,7 @@ struct ServiceInfo {
     std::string              name;
     std::vector<ProcessInfo> processes;
     ProcessState             overallState;
+    int                      startsecs;
 };
 
 class ProgramConfig;
