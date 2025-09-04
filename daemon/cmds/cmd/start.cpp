@@ -3,103 +3,123 @@
 #include "launch/config_program.hpp"
 
 extern std::map<std::string, ServiceInfo> runningServices;
+extern std::mutex                         serviceMutex;
 
-void monitoring(std::shared_ptr<std::vector<pid_t>> pids);
+extern void monitoring(std::shared_ptr<std::vector<pid_t>> pids);
 
 std::string startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                          const std::map<std::string, ProgramConfig>            &programs) {
     Logger::info("Starting command logic");
     std::ostringstream response;
-    std::string        requestedProgram;
 
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to start.");
-        response << "Error: No program specified to start.";
-        return response.str();
+        return "Error: No program specified to start.";
     }
 
-    requestedProgram = cmd.at("args")[0];
+    std::string requestedProgram = cmd.at("args")[0];
     Logger::debug("Requested program: " + requestedProgram);
 
     auto it = programs.find(requestedProgram);
     if (it == programs.end()) {
         Logger::error("Program " + requestedProgram + " not found in configuration.");
-        response << "Error: Program " + requestedProgram + " not found in configuration.";
-        return response.str();
+        return "Error: Program " + requestedProgram + " not found in configuration.";
     }
 
-    const ProgramConfig &configFromFile = it->second;
-    int                  maxInstances   = configFromFile.getNumprocs();
-
-    if (getServiceInstanceCount(requestedProgram) >= static_cast<size_t>(maxInstances)) {
-        Logger::error("The program " + requestedProgram + " already has " +
-                      std::to_string(maxInstances) + " instance(s) running!");
-        response << "The program " + requestedProgram + " already has " +
-                        std::to_string(maxInstances) + " instance(s) running!";
-        return response.str();
+    {
+        std::lock_guard<std::mutex> lock(serviceMutex);
+        auto                       &processes = runningServices[requestedProgram].processes;
+        processes.erase(std::remove_if(processes.begin(), processes.end(),
+                                       [](const ProcessInfo &p) {
+                                           return p.state == ProcessState::STOPPED ||
+                                                  p.state == ProcessState::FATAL;
+                                       }),
+                        processes.end());
     }
-    setup_signal_handlers();
 
-    auto pids = std::make_shared<std::vector<pid_t>>();
+    const ProgramConfig &config       = it->second;
+    int                  maxInstances = config.getNumprocs();
+
+    int currentInstances = getServiceInstanceCount(requestedProgram);
+    if (currentInstances >= maxInstances) {
+        Logger::warn(requestedProgram + " already has " + std::to_string(currentInstances) +
+                     " instance(s), max is " + std::to_string(maxInstances));
+        return "The program " + requestedProgram + " already has " +
+               std::to_string(currentInstances) + " instance(s) running!";
+    }
+
+    int remainingInstances = maxInstances - currentInstances;
+    int successfulStarts   = 0;
+
+    Logger::info("Attempting to start " + std::to_string(remainingInstances) + " instance(s) of " +
+                 requestedProgram);
 
     updateServiceState(requestedProgram, ProcessState::STARTING);
-    response << "Starting program: " << requestedProgram << std::endl;
+    auto newPids = std::make_shared<std::vector<pid_t>>();
 
-    const int max_retries         = configFromFile.getStartretries();
-    int       remaining_instances = maxInstances - getServiceInstanceCount(requestedProgram);
-    int       successful_starts   = 0;
-
-    for (int i = 0; i < remaining_instances; i++) {
+    for (int i = 0; i < remainingInstances; i++) {
         int   retries = 0;
         pid_t pid     = -1;
 
-        while (retries < max_retries) {
-            pid = launch_program(requestedProgram, configFromFile);
-            if (pid <= 0) {
-                Logger::error("Execution failed for program " + requestedProgram + " (attempt " +
-                              std::to_string(retries + 1) + ")");
-                retries++;
-                incrementRetries(requestedProgram, -1);
-                continue;
-            }
-            addServicePid(requestedProgram, pid, configFromFile.getStartsecs());
-            pids->push_back(pid);
+        while (retries < config.getStartretries()) {
+            pid = launch_program(requestedProgram, config);
+            if (pid > 0) break;
 
-            Logger::info("Started program " + requestedProgram + " with PID " +
-                         std::to_string(pid));
-            response << "Started program " + requestedProgram + " with PID " + std::to_string(pid)
-                     << std::endl;
-            successful_starts++;
-            break;
+            retries++;
+            Logger::warn(requestedProgram + ": retry " + std::to_string(retries) + "/" +
+                         std::to_string(config.getStartretries()));
         }
 
-        if (pid <= 0 && retries >= max_retries) {
-            Logger::error("Failed to start program " + requestedProgram + " after " +
-                          std::to_string(max_retries) + " attempts.");
-            response << "Failed to start program " + requestedProgram + " after " +
-                            std::to_string(max_retries) + " attempts."
-                     << std::endl;
+        if (pid > 0) {
+            {
+                std::lock_guard<std::mutex> lock(serviceMutex);
+                addServicePid(requestedProgram, pid, config.getStartsecs());
+            }
+
+            newPids->push_back(pid);
+            Logger::info("Started " + requestedProgram + " with PID " + std::to_string(pid));
+            response << "Started " << requestedProgram << " with PID " << pid << "\n";
+            successfulStarts++;
+        } else {
+            Logger::error("Failed to start " + requestedProgram + " after " +
+                          std::to_string(config.getStartretries()) + " retries.");
+            response << "Failed to start " << requestedProgram
+                     << " after " + std::to_string(config.getStartretries()) + " retries.\n";
 
             if (getServiceInstanceCount(requestedProgram) == 0) {
                 updateServiceState(requestedProgram, ProcessState::FATAL);
-                response << "Program " << requestedProgram << " is in FATAL state." << std::endl;
+                response << requestedProgram << " is now in FATAL state.\n";
             }
         }
     }
+    if (!monitoringStarted) {
+        auto allPids = std::make_shared<std::vector<pid_t>>();
+        {
+            std::lock_guard<std::mutex> lock(serviceMutex);
+            for (auto &[svcName, svc] : runningServices) {
+                for (auto &proc : svc.processes) {
+                    allPids->push_back(proc.pid);
+                }
+            }
+        }
 
-    if (!pids->empty()) {
-        std::thread monitor_thread(monitoring, pids);
+        std::thread monitor_thread(monitoring, allPids);
         monitor_thread.detach();
 
-        if (successful_starts == remaining_instances) {
-            response << "All " << successful_starts << " instance(s) of " << requestedProgram
+        monitoringStarted = true;
+        Logger::info("Monitoring thread started globally");
+    }
+
+    if (successfulStarts > 0) {
+        if (successfulStarts == remainingInstances) {
+            response << "All " << successfulStarts << " instance(s) of " << requestedProgram
                      << " started successfully.";
         } else {
-            response << successful_starts << " of " << remaining_instances
+            response << successfulStarts << " of " << remainingInstances
                      << " instance(s) started successfully.";
         }
     } else {
-        response << "Failed to start any instances of " << requestedProgram;
+        response << "No new instances of " << requestedProgram << " were started.";
     }
 
     return response.str();

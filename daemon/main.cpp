@@ -48,6 +48,13 @@ int main(int ac, char **av) {
         return 1;
     }
 
+    if (!config.nodaemon)
+        daemonize(config);
+    else
+        Logger::info("Logfile only works in daemonized mode.");
+
+    apply_runtime_settings(config);
+
     // first load after config is done
     try {
         rereadCommand(config);
@@ -58,17 +65,10 @@ int main(int ac, char **av) {
         return 1;
     }
 
-    log_config(config.programs);
     std::thread program_thread(exec_programs, config.programs);
+    log_config(config.programs);
 
-    if (!config.nodaemon)
-        daemonize(config);
-    else
-        Logger::info("Logfile only works in daemonized mode.");
-
-    apply_runtime_settings(config);
     run_server(config);
-
     program_thread.join();
 
     return 0;

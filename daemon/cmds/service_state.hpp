@@ -11,9 +11,9 @@
 // Forward declaration
 class ProgramConfig;
 
-// Map globale qui stocke l'état de tous les services en cours d'exécution
 extern std::map<std::string, ServiceInfo> runningServices;
-extern std::mutex                         serviceMutex;  // Pour protéger les accès concurrents
+extern std::mutex                         serviceMutex;
+extern bool                               monitoringStarted;
 
 // Fonctions utilitaires pour manipuler l'état des services
 void   updateServiceState(const std::string& name, ProcessState state);

@@ -5,6 +5,7 @@
 
 std::map<std::string, ServiceInfo> runningServices;
 std::mutex                         serviceMutex;
+bool                               monitoringStarted = false;
 
 bool addServicePid(const std::string& name, pid_t pid, int startsecs) {
     auto& processes = runningServices[name].processes;

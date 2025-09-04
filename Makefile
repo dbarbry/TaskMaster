@@ -102,6 +102,11 @@ client:
     	echo "$(RED)[ERROR] :$(RST) Compile the project first$(RED)\033[56G[✘]$(RST)"; \
     	exit 1; \
     fi
+	@PID=$$(ps -eo pid,comm | grep "[c]lient.out" | awk '{print $$1}'); \
+    if [ "$$PID" ]; then \
+        echo "$(RED)[ERROR] :$(RST) A client is already running$(RED)\033[56G[✘]$(RST)"; \
+        exit 1; \
+    fi;
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_CLIENT).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_CLIENT).out || true
 .PHONY: client
@@ -127,6 +132,7 @@ $(CREATE_GROUP); \
 	@echo "$(GRN)[LOG]  :$(RST) Launching $(NAME_SERVER).out...$(BGREEN)\033[56G[✔]$(RST)"
 	@./$(NAME_SERVER).out $(RUN_ARGS) || true
 .PHONY: server
+
 kill:
 	@PID=$$(pgrep -x $(NAME_SERVER).out); \
 	if [ -z "$$PID" ]; then \
@@ -142,9 +148,6 @@ kill:
 	fi
 .PHONY: kill
 
-stop: kill
-.PHONY: stop
-
 status:
 	@PIDS=$$(ps -eo pid,ppid,comm | awk '/[d]aemon\.out/{print $$1}'); \
 	if [ -n "$$PIDS" ]; then \
@@ -155,9 +158,6 @@ status:
 	fi; \
 	if [ -f "$(PID_PATH)" ]; then echo "$(BLU)[INFO]  :$(RST) PID file: $(PID_PATH) -> $$(cat $(PID_PATH))"; fi
 .PHONY: status
-
-kill-all: kill
-.PHONY: kill-all
 
 clean:
 	$(RM) $(OBJ_CLIENT) $(OBJ_SERVER)

@@ -7,40 +7,36 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
 
     if (!cmd.count("args") || cmd.at("args").empty()) {
         Logger::error("No program specified to restart.");
-        response << "Error: No program specified to restart.";
-        return response.str();
+        return "Error: No program specified to restart.";
     }
 
     std::string programToRestart = cmd.at("args")[0];
 
     if (programs.find(programToRestart) == programs.end()) {
         Logger::error(programToRestart + ": ERROR (no such program)");
-        response << programToRestart + ": ERROR (no such program)";
-        return response.str();
+        return programToRestart + ": ERROR (no such program)";
     }
-
-    std::map<std::string, std::vector<std::string>> cmdCopy = cmd;
 
     Logger::info(programToRestart + ": restarting process");
     response << programToRestart + ": restarting process" << std::endl;
 
-    // Récupération de la réponse de stopCommand
-    std::string stopResponse = stopCommand(cmdCopy, programs);
-    response << stopResponse;
+    std::string stopResp = stopCommand(cmd, programs);
+    response << stopResp;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    int maxWaitMs = 1000 * 10;  // max 10 seconds
+    int waitedMs  = 0;
+    int interval  = 100;  // check every 100ms
 
-    Logger::info(programToRestart + ": stopped");
-    Logger::info(programToRestart + ": starting");
-    response << programToRestart + ": stopped" << std::endl;
-    response << programToRestart + ": starting" << std::endl;
+    while (getServiceInstanceCount(programToRestart) > 0 && waitedMs < maxWaitMs) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+        waitedMs += interval;
+    }
 
-    // Récupération de la réponse de startCommand
-    std::string startResponse = startCommand(cmdCopy, programs);
-    response << startResponse;
+    std::string startResp = startCommand(cmd, programs);
+    response << startResp << std::endl;
 
-    Logger::info(programToRestart + ": started");
-    response << programToRestart + ": started";
+    Logger::info(programToRestart + ": restarted successfully");
+    response << programToRestart + ": restarted successfully";
 
     return response.str();
 }
