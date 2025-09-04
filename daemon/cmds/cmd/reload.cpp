@@ -2,16 +2,33 @@
 #include "../cmds.hpp"
 
 /**
+ * @brief Helper to join vector<string> into a single string with separator
+ */
+std::string joinStrings(const std::vector<std::string>& vec, const std::string& sep) {
+    std::ostringstream oss;
+    for (size_t i = 0; i < vec.size(); ++i) {
+        oss << vec[i];
+        if (i + 1 < vec.size()) {
+            oss << sep;
+        }
+    }
+    return oss.str();
+}
+
+/**
  * @brief Compares two program configurations to detect changes that requires a restart
  */
 std::optional<std::pair<std::string, bool>> isProgramConfigurationChanged(
     const std::string& name, const ProgramConfig& old_config, const ProgramConfig& new_config) {
+    Logger::debug(name + ": old workingdir=" + std::to_string(old_config.getNumprocs()) +
+                  ", new workingdir=" + std::to_string(new_config.getNumprocs()));
     // require restart
     if (old_config.getCommand() != new_config.getCommand() ||
         old_config.getNumprocs() != new_config.getNumprocs() ||
         old_config.getWorkingDir() != new_config.getWorkingDir() ||
         old_config.getUmask() != new_config.getUmask() ||
         old_config.getEnvironment() != new_config.getEnvironment()) {
+        Logger::debug(name + ": change detected (restart required)");
         return std::make_pair(name, true);
     }
 
@@ -24,6 +41,7 @@ std::optional<std::pair<std::string, bool>> isProgramConfigurationChanged(
         old_config.getExitcodes() != new_config.getExitcodes() ||
         old_config.getStartretries() != new_config.getStartretries() ||
         old_config.getStartsecs() != new_config.getStartsecs()) {
+        Logger::debug(name + ": change detected (no restart required)");
         return std::make_pair(name, false);
     }
 
@@ -36,13 +54,24 @@ std::optional<std::pair<std::string, bool>> isProgramConfigurationChanged(
 std::string reloadCommand(const std::map<std::string, std::vector<std::string>>& cmd,
                           std::map<std::string, ProgramConfig>&                  programs,
                           const TaskmasterConfig&                                config) {
-    std::ostringstream                        response;
-    TaskmasterConfig                          new_config;
-    std::vector<std::pair<std::string, bool>> changed_programs;
-    std::map<std::string, bool>               running;
+    std::ostringstream       response;
+    TaskmasterConfig         new_config;
+    std::vector<std::string> updated;
+    std::vector<std::string> restarted;
 
     try {
         new_config = parse_taskmaster_conf(config.conf_path);
+
+        std::map<std::string, ProgramConfig> fresh_configs;
+        std::vector<std::string>             files = utils::expand_glob(new_config.files);
+
+        for (const auto& filepath : files) {
+            std::map<std::string, ProgramConfig> parsed = parsing(filepath);
+            fresh_configs.insert(parsed.begin(), parsed.end());
+        }
+
+        new_config.programs = fresh_configs;
+
         Logger::info("Configuration successfully reloaded from file: " + config.conf_path);
     } catch (const std::exception& e) {
         std::string error = "Failed to reload configuration: ";
@@ -51,50 +80,47 @@ std::string reloadCommand(const std::map<std::string, std::vector<std::string>>&
         return response.str();
     }
 
-    for (const auto& [name, new_prog] : new_config.programs) {
-        auto it = programs.find(name);
-        if (it != programs.end()) {
-            Logger::debug("Comparing " + it->second.getWorkingDir() + " and " +
-                          new_prog.getWorkingDir());
-            auto result = isProgramConfigurationChanged(name, it->second, new_prog);
-            if (result.has_value()) {
-                changed_programs.push_back(result.value());
-                running[name] = getServiceInstanceCount(name) > 0;
-                Logger::info("Program '" + name + "' config changed. Restart required: " +
-                             std::string(result->second ? "yes" : "no"));
+    for (const auto& [name, old_prog] : programs) {
+        Logger::info("Checking program: " + name);
+        Logger::info("New config contains programs:");
+        for (const auto& [n, _] : new_config.programs) {
+            Logger::info(" - " + n);
+        }
+
+        auto it = new_config.programs.find(name);
+        if (it == new_config.programs.end()) {
+            Logger::info("New program found here ====:");
+            // reload ignores new/removed programs
+            continue;
+        }
+
+        auto result = isProgramConfigurationChanged(name, old_prog, it->second);
+        if (result.has_value()) {
+            bool needs_restart = result->second;
+
+            programs[name] = it->second;
+            updated.push_back(name);
+
+            if (needs_restart && getServiceInstanceCount(name) > 0) {
+                std::map<std::string, std::vector<std::string>> restart_cmd = {{"args", {name}}};
+                std::string restart_response = restartCommand(restart_cmd, programs);
+                response << restart_response;
+                Logger::info("Reload: restarted program " + name);
+                restarted.push_back(name);
             }
         }
     }
 
-    for (const auto& [name, needs_restart] : changed_programs) {
-        if (needs_restart && running[name]) {
-            std::map<std::string, std::vector<std::string>> stop_cmd = {{"args", {name}}};
-            response << stopCommand(stop_cmd, programs);
-            Logger::info("Stopped program: " + name + " due to config change.");
-        }
-    }
-
-    for (const auto& [name, _] : changed_programs) {
-        programs[name] = new_config.programs[name];
-        Logger::info("Updated configuration for program: " + name);
-    }
-
-    for (const auto& [name, needs_restart] : changed_programs) {
-        if (needs_restart && running[name]) {
-            std::map<std::string, std::vector<std::string>> start_cmd = {{"args", {name}}};
-            response << startCommand(start_cmd, programs);
-            Logger::info("Restarted updated program: " + name);
-        }
-    }
-
-    if (changed_programs.empty()) {
+    if (updated.empty()) {
         response << "No configuration changes detected. Nothing restarted.";
     } else {
-        size_t restarted = std::count_if(changed_programs.begin(), changed_programs.end(),
-                                         [](const auto& p) { return p.second; });
-        size_t updated   = changed_programs.size();
-        response << "Reloaded configuration. " << restarted << " program(s) restarted. "
-                 << (updated - restarted) << " updated without restart.";
+        response << std::endl << "Reloaded configuration." << std::endl;
+        if (!updated.empty()) {
+            response << "Updated: " << joinStrings(updated, ", ") << std::endl;
+        }
+        if (!restarted.empty()) {
+            response << "Restarted: " << joinStrings(restarted, ", ") << std::endl;
+        }
     }
 
     return response.str();
