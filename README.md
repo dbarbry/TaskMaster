@@ -12,3 +12,18 @@ make kill                   - kill the daemonized server.
 make fclean                 - to clean everything
 make clean_log              - to clean logs
 ```
+
+IMPORTANT: If you change pidfile in the config file you must change it in the Makefile as well at the PID_PATH, or kill won't work.
+
+In order to use clang-format file:
+
+Install C/C++ extension
+Then in your JSON settings of vscode:
+
+```
+{
+    "C_Cpp.formatting": "clangFormat",
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+}
+```
