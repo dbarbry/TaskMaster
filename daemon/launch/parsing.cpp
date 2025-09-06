@@ -173,9 +173,11 @@ std::map<std::string, std::string> parse_environment(const std::string &line) {
  * @return Map of key-value environment pairs.
  */
 std::string parse_command(const std::string &line) {
-    std::string trimmed = utils::trim(line);
-
-    return trimmed;
+    // Remove leading/trailing whitespace, but preserve everything else
+    size_t start = line.find_first_not_of(" \t");
+    size_t end   = line.find_last_not_of(" \t");
+    if (start == std::string::npos) return "";
+    return line.substr(start, end - start + 1);
 }
 
 }  // namespace config_parser

@@ -49,25 +49,34 @@ void parse_command(const std::string &cmd, std::vector<std::unique_ptr<char[]>> 
     av.clear();
 
     std::vector<std::string> args;
-    std::istringstream       iss(cmd);
-    std::string              token;
     std::string              current_arg;
+    bool                     in_single_quote = false;
+    bool                     in_double_quote = false;
+    bool                     escaping        = false;
 
-    while (iss >> std::ws) {
-        char c = iss.peek();
+    for (size_t i = 0; i < cmd.size(); ++i) {
+        char c = cmd[i];
 
-        if (c == '"' || c == '\'') {
-            char quote = iss.get();
-            current_arg.clear();
-            while (iss.get(c)) {
-                if (c == quote) break;
-                current_arg += c;
+        if (escaping) {
+            current_arg += c;
+            escaping = false;
+        } else if (c == '\\') {
+            escaping = true;
+        } else if (c == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+        } else if (c == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+        } else if (std::isspace(c) && !in_single_quote && !in_double_quote) {
+            if (!current_arg.empty()) {
+                args.push_back(current_arg);
+                current_arg.clear();
             }
-            args.push_back(current_arg);
         } else {
-            iss >> token;
-            args.push_back(token);
+            current_arg += c;
         }
+    }
+    if (!current_arg.empty()) {
+        args.push_back(current_arg);
     }
 
     for (auto &s : args) {
@@ -93,12 +102,6 @@ void set_environment(const std::map<std::string, std::string> &env,
 }
 
 void redirect_output(const std::string &stdout_file, const std::string &stderr_file) {
-    // Ensure child does not read from daemon's stdin (be deterministic on macOS/Linux)
-    int stdin_fd = open("/dev/null", O_RDONLY);
-    if (stdin_fd >= 0) {
-        dup2(stdin_fd, STDIN_FILENO);
-        close(stdin_fd);
-    }
     int stdout_fd = open(stdout_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
     int stderr_fd = open(stderr_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
@@ -225,51 +228,50 @@ void exec_programs(const std::map<std::string, ProgramConfig> &programs) {
 
     setup_signal_handlers();
     for (const auto &[name, config] : programs) {
-        const int max_retries   = config.getStartretries();
-        int       nbr_instances = config.getNumprocs();
+        if (!config.getAutostart()) {
+            Logger::info(name + ": autostart disabled, skipping.");
+            continue;
+        }
 
-        for (const auto &[name, config] : programs) {
-            int runningCount = getServiceInstanceCount(name);
-            int remaining    = config.getNumprocs() - runningCount;
+        int runningCount = getServiceInstanceCount(name);
+        int remaining    = config.getNumprocs() - runningCount;
 
-            if (remaining <= 0) {
-                Logger::info(name + ": already has " + std::to_string(runningCount) +
-                             " instance(s), skipping launch.");
-                continue;
+        if (remaining <= 0) {
+            Logger::info(name + ": already has " + std::to_string(runningCount) +
+                         " instance(s), skipping launch.");
+            continue;
+        }
 
-                Logger::info("Autostarting " + std::to_string(remaining) + " instance(s) of " +
-                             name);
+        Logger::info("Autostarting " + std::to_string(remaining) + " instance(s) of " + name);
 
-                for (int i = 0; i < remaining; i++) {
-                    int   retries = 0;
-                    pid_t pid     = -1;
+        for (int i = 0; i < remaining; i++) {
+            int   retries = 0;
+            pid_t pid     = -1;
 
-                    while (retries < config.getStartretries()) {
-                        pid = launch_program(name, config);
-                        if (pid > 0) break;  // success
-                        retries++;
-                        Logger::warn(name + ": retrying launch (" + std::to_string(retries) + "/" +
-                                     std::to_string(config.getStartretries()) + ")");
-                    }
-
-                    if (pid > 0) {
-                        std::lock_guard<std::mutex> lock(serviceMutex);
-                        addServicePid(name, pid, config.getStartsecs());
-                        Logger::info("Launched " + name + " with PID " + std::to_string(pid));
-                        pids->push_back(pid);
-                        updateServiceState(name, ProcessState::STARTING);
-                    } else {
-                        Logger::error("Failed to start " + name + " after " +
-                                      std::to_string(config.getStartretries()) + " retries.");
-                        if (getServiceInstanceCount(name) == 0) {
-                            updateServiceState(name, ProcessState::FATAL);
-                        }
-                    }
-                }
+            while (retries < config.getStartretries()) {
+                pid = launch_program(name, config);
+                if (pid > 0) break;  // success
+                retries++;
+                Logger::warn(name + ": retrying launch (" + std::to_string(retries) + "/" +
+                             std::to_string(config.getStartretries()) + ")");
             }
 
-            std::thread monitor_thread(monitoring, pids);
-            monitor_thread.detach();
+            if (pid > 0) {
+                std::lock_guard<std::mutex> lock(serviceMutex);
+                addServicePid(name, pid, config.getStartsecs());
+                Logger::info("Launched " + name + " with PID " + std::to_string(pid));
+                pids->push_back(pid);
+                updateServiceState(name, ProcessState::STARTING);
+            } else {
+                Logger::error("Failed to start " + name + " after " +
+                              std::to_string(config.getStartretries()) + " retries.");
+                if (getServiceInstanceCount(name) == 0) {
+                    updateServiceState(name, ProcessState::FATAL);
+                }
+            }
         }
     }
+
+        std::thread monitor_thread(monitoring, pids);
+    monitor_thread.detach();
 }
