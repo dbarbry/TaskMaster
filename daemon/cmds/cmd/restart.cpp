@@ -31,7 +31,7 @@ std::string restartCommand(const std::map<std::string, std::vector<std::string>>
         std::this_thread::sleep_for(std::chrono::milliseconds(interval));
         waitedMs += interval;
     }
-
+    response << std::endl;
     std::string startResp = startCommand(cmd, programs);
     response << startResp << std::endl;
 
