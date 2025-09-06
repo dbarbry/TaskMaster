@@ -25,6 +25,9 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
         if (utils::is_comment_or_empty(line)) continue;
 
         if (line.front() == '[' && line.back() == ']') {
+            if (!current_program_name.empty()) {
+                programs[current_program_name] = current_program;
+            }
             current_program_name = line.substr(1, line.size() - 2);
             current_program_name = utils::to_lower_copy(current_program_name);
             current_program      = ProgramConfig();
@@ -66,7 +69,9 @@ std::map<std::string, ProgramConfig> parse_config(const std::string& filepath) {
                 } else if (key == "startretries") {
                     current_program.setStartretries(config_validator::validate_integer(value, key));
                 } else if (key == "starttime" || key == "startsecs") {  // Support both names
-                    current_program.setStartsecs(config_validator::validate_integer(value, key));
+                    int starttime = config_validator::validate_integer(value, key);
+                    if (starttime < 1) starttime = 1;
+                    current_program.setStartsecs(starttime);
                 } else if (key == "stopsignal") {
                     std::string upper_value = utils::to_upper_copy(value);
                     current_program.setStopsignal(string_to_stopsignal(upper_value));

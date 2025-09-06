@@ -137,12 +137,6 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
             _exit(1);
         }
 
-        int fd = open("/dev/null", O_RDONLY);
-        if (fd >= 0) {
-            dup2(fd, STDIN_FILENO);
-            close(fd);
-        }
-
         redirect_output(config.getStdoutLogfile(), config.getStderrLogfile());
         set_environment(config.getEnvironment(), env_storage, envp);
         parse_command(config.getCommand(), storage, av);
