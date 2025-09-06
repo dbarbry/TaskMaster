@@ -35,6 +35,19 @@ std::string updateCommand(TaskmasterConfig& config) {
 
         config.programs[prog] = fresh_configs[prog];
 
+        {
+            std::lock_guard<std::mutex> lock(serviceMutex);
+            if (runningServices.find(prog) == runningServices.end()) {
+                runningServices[prog] = ServiceInfo();
+            }
+        }
+
+        if (!fresh_configs[prog].getAutostart()) {
+            Logger::info(prog + ": autostart disabled, not starting.");
+            response << prog << ": autostart disabled, not starting." << std::endl;
+            continue;
+        }
+
         std::map<std::string, std::vector<std::string>> startCmd = {{"args", {prog}}};
         std::string startResult = startCommand(startCmd, config.programs);
         response << startResult;

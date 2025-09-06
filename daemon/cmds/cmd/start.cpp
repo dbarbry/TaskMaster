@@ -5,7 +5,8 @@
 extern std::map<std::string, ServiceInfo> runningServices;
 extern std::mutex                         serviceMutex;
 
-extern void monitoring(std::shared_ptr<std::vector<pid_t>> pids);
+extern void monitoring(std::shared_ptr<std::vector<pid_t>>         pids,
+                       const std::map<std::string, ProgramConfig> *programs);
 
 std::string startCommand(const std::map<std::string, std::vector<std::string>> &cmd,
                          const std::map<std::string, ProgramConfig>            &programs) {
@@ -103,7 +104,7 @@ std::string startCommand(const std::map<std::string, std::vector<std::string>> &
             }
         }
 
-        std::thread monitor_thread(monitoring, allPids);
+        std::thread monitor_thread(monitoring, allPids, &programs);
         monitor_thread.detach();
 
         monitoringStarted = true;
