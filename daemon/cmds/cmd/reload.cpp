@@ -101,7 +101,7 @@ std::string reloadCommand(const std::map<std::string, std::vector<std::string>>&
             programs[name] = it->second;
             updated.push_back(name);
 
-            if (needs_restart && getServiceInstanceCount(name) > 0) {
+            if (needs_restart) {
                 std::map<std::string, std::vector<std::string>> restart_cmd = {{"args", {name}}};
                 std::string restart_response = restartCommand(restart_cmd, programs);
                 response << restart_response;

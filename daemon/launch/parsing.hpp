@@ -6,8 +6,12 @@
 #include <pwd.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <regex>
