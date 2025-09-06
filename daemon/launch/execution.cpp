@@ -130,8 +130,6 @@ pid_t launch_program(const std::string &name, const ProgramConfig &config) {
         return -1;
     }
     if (pid == 0) {  // child
-        Logger::info("Launching: " + name + " (" + config.getCommand() + ")");
-
         mode_t mask = config.getUmask();
         umask(mask);
 
@@ -184,42 +182,52 @@ void monitoring(std::shared_ptr<std::vector<pid_t>>         pids,
                         process.state    = ProcessState::STOPPED;
                         process.exitCode = exitCode;
                         Logger::info("[MONITOR] Service " + serviceName + " PID " +
-                                     std::to_string(pid) + " crashed with exit code " +
+                                     std::to_string(pid) + " exited with code " +
                                      std::to_string(exitCode));
 
-                        // Auto-restart logic if startretries allows it
                         if (programs && programs->find(serviceName) != programs->end()) {
-                            const ProgramConfig &config = programs->at(serviceName);
-                            if (process.retries < config.getStartretries()) {
-                                process.retries++;
-                                Logger::info("[MONITOR] Attempting restart " +
-                                             std::to_string(process.retries) + "/" +
-                                             std::to_string(config.getStartretries()) + " for " +
-                                             serviceName);
+                            const ProgramConfig &config       = programs->at(serviceName);
+                            int                  startretries = config.getStartretries();
 
+                            process.retries++;
+                            if (process.retries > startretries) {
+                                process.state = ProcessState::FATAL;
+                                Logger::error("[MONITOR] " + serviceName +
+                                              ": maximum retries reached (" +
+                                              std::to_string(startretries) + "), not restarting.");
+                                continue;
+                            }
+
+                            // Autorestart logic
+                            bool should_restart = false;
+                            auto ar             = config.getAutorestart();
+                            if (ar == EAutorestart::ALWAYS) {
+                                should_restart = true;
+                            } else if (ar == EAutorestart::UNEXPECTED) {
+                                if (std::find(config.getExitcodes().begin(),
+                                              config.getExitcodes().end(),
+                                              exitCode) == config.getExitcodes().end()) {
+                                    should_restart = true;
+                                }
+                            }
+                            if (should_restart) {
                                 pid_t newPid = launch_program(serviceName, config);
                                 if (newPid > 0) {
-                                    addServicePid(serviceName, newPid, config.getStartsecs());
+                                    process.pid       = newPid;
+                                    process.state     = ProcessState::STARTING;
+                                    process.startTime = std::time(nullptr);
                                     pids->push_back(newPid);
-                                    Logger::info("[MONITOR] Successfully restarted " + serviceName +
-                                                 " with new PID " + std::to_string(newPid));
+                                    Logger::info("[MONITOR] Restarted " + serviceName + " (retry " +
+                                                 std::to_string(process.retries) + "/" +
+                                                 std::to_string(startretries) + ") with PID " +
+                                                 std::to_string(newPid));
                                 } else {
                                     Logger::error("[MONITOR] Failed to restart " + serviceName +
                                                   " (attempt " + std::to_string(process.retries) +
                                                   ")");
                                 }
-                            } else {
-                                Logger::error("[MONITOR] " + serviceName +
-                                              " has reached maximum restart attempts (" +
-                                              std::to_string(config.getStartretries()) +
-                                              "), marking as FATAL");
-                                updateServiceState(serviceName, ProcessState::FATAL);
                             }
                         }
-
-                        Logger::info("[MONITOR] Service " + serviceName + " has " +
-                                     std::to_string(getServiceInstanceCount(serviceName)) +
-                                     " instances remaining");
                     }
                 }
             }
@@ -235,18 +243,24 @@ void monitoring(std::shared_ptr<std::vector<pid_t>>         pids,
                 for (auto &process : service.processes) {
                     if (process.state == ProcessState::STARTING) {
                         time_t elapsed = std::time(nullptr) - process.startTime;
-                        if (elapsed >= service.startsecs) {
-                            if (kill(process.pid, 0) == 0) {  // still alive
-                                process.state = ProcessState::RUNNING;
-                                Logger::info(serviceName + ": process " +
-                                             std::to_string(process.pid) +
-                                             " has reached RUNNING state after " +
-                                             std::to_string(elapsed) + "s");
-                            } else {
-                                process.state = ProcessState::STOPPED;
-                                Logger::info(serviceName + ": process " +
-                                             std::to_string(process.pid) +
-                                             " exited before reaching RUNNING");
+                        if (programs && programs->find(serviceName) != programs->end()) {
+                            int startsecs = programs->at(serviceName).getStartsecs();
+                            if (elapsed >= startsecs) {
+                                if (kill(process.pid, 0) == 0) {  // still alive
+                                    process.state = ProcessState::RUNNING;
+                                    Logger::info(serviceName + ": process " +
+                                                 std::to_string(process.pid) +
+                                                 " has reached RUNNING state after " +
+                                                 std::to_string(elapsed) + "s");
+                                } else {
+                                    process.state = ProcessState::STOPPED;
+                                    Logger::info(serviceName + ": process " +
+                                                 std::to_string(process.pid) +
+                                                 " exited before reaching RUNNING, maximum of " +
+                                                 std::to_string(
+                                                     programs->at(serviceName).getStartretries()) +
+                                                 "retries reached");
+                                }
                             }
                         }
                     }
@@ -254,7 +268,7 @@ void monitoring(std::shared_ptr<std::vector<pid_t>>         pids,
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // slightly faster monitoring
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
