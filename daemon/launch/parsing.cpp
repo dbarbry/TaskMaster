@@ -229,14 +229,17 @@ std::filesystem::path validate_folder(const std::filesystem::path &path,
  * @return The validated directory path.
  * @throws std::runtime_error if the path is not absolute or not a directory.
  */
-std::filesystem::path validate_dir(const std::string &value, const std::string &field_name) {
-    std::filesystem::path path = validate_path(value, field_name);
+std::filesystem::path validate_path(const std::string &value, const std::string &field_name) {
+    std::filesystem::path path(value);
 
-    if (!std::filesystem::exists(path) || !std::filesystem::is_directory(path)) {
-        throw std::runtime_error("Invalid directory for " + field_name +
-                                 ": does not exist or is not a directory (" + value + ")");
+    if (!path.is_absolute()) {
+        throw std::runtime_error("Invalid path for " + field_name + ": must be absolute (" + value +
+                                 ")");
     }
-
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error("Invalid path for " + field_name + ": does not exist (" + value +
+                                 ")");
+    }
     return path;
 }
 
